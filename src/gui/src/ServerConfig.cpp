@@ -64,22 +64,72 @@ ServerConfig::~ServerConfig()
     saveSettings();
 }
 
-bool ServerConfig::save(const QString& fileName) const
+bool ServerConfig::save(const QString& fileName, QString* errorMessage) const
 {
     QFile file(fileName);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
 
-    save(file);
+    bool success = save(file, errorMessage);
     file.close();
 
+    return success;
+}
+
+bool ServerConfig::save(QFile& file, QString* errorMessage) const
+{
+    if (!validate(errorMessage))
+        return false;
+
+    QTextStream outStream(&file);
+    outStream << *this;
     return true;
 }
 
-void ServerConfig::save(QFile& file) const
+bool ServerConfig::validate(QString* errorMessage) const
 {
-    QTextStream outStream(&file);
-    outStream << *this;
+    QHash<QString, QString> usedNames;
+
+    auto setError = [errorMessage](const QString& name,
+                                   const QString& firstUse,
+                                   const QString& secondUse) {
+        if (errorMessage != nullptr) {
+            *errorMessage = QString(
+                "The screen name or alias \"%1\" is used more than once (%2 and %3). "
+                "Each screen name and alias must be unique.")
+                .arg(name, firstUse, secondUse);
+        }
+    };
+
+    auto checkName = [&](const QString& name, const QString& owner) {
+        if (name.isEmpty())
+            return true;
+
+        auto it = usedNames.constFind(name);
+        if (it != usedNames.constEnd()) {
+            setError(name, it.value(), owner);
+            return false;
+        }
+
+        usedNames.insert(name, owner);
+        return true;
+    };
+
+    for (const Screen& screen : screens()) {
+        if (screen.isNull())
+            continue;
+
+        const QString screenOwner = QString("screen \"%1\"").arg(screen.name());
+        if (!checkName(screen.name(), screenOwner))
+            return false;
+
+        for (const QString& alias : screen.aliases()) {
+            if (!checkName(alias, QString("alias on %1").arg(screenOwner)))
+                return false;
+        }
+    }
+
+    return true;
 }
 
 void ServerConfig::init()

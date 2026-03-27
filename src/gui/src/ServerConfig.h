@@ -66,8 +66,9 @@ class ServerConfig : public BaseConfig
 
         void saveSettings();
         void loadSettings();
-        bool save(const QString& fileName) const;
-        void save(QFile& file) const;
+        bool save(const QString& fileName, QString* errorMessage = nullptr) const;
+        bool save(QFile& file, QString* errorMessage = nullptr) const;
+        bool validate(QString* errorMessage = nullptr) const;
         int numScreens() const;
         int autoAddScreen(const QString name);
 

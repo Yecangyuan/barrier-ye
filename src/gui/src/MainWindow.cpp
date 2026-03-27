@@ -502,6 +502,7 @@ void MainWindow::startBarrier()
 {
     bool desktopMode = appConfig().processMode() == Desktop;
     bool serviceMode = appConfig().processMode() == Service;
+    QString activeConfigFilename;
 
     appendLogDebug("starting process");
     m_ExpectedRunningState = kStarted;
@@ -561,7 +562,7 @@ void MainWindow::startBarrier()
 #endif
 
     if ((barrier_type() == BarrierType::Client && !clientArgs(args, app))
-        || (barrier_type() == BarrierType::Server && !serverArgs(args, app)))
+        || (barrier_type() == BarrierType::Server && !serverArgs(args, app, activeConfigFilename)))
     {
         stopBarrier();
         return;
@@ -582,7 +583,8 @@ void MainWindow::startBarrier()
 
     appendLogDebug(QString("command: %1 %2").arg(app, args.join(" ")));
 
-    appendLogInfo("config file: " + configFilename());
+    if (barrier_type() == BarrierType::Server)
+        appendLogInfo("config file: " + activeConfigFilename);
     appendLogInfo("log level: " + appConfig().logLevelText());
 
     if (appConfig().logToFile())
@@ -665,7 +667,15 @@ QString MainWindow::configFilename()
             return "";
         }
 
-        serverConfig().save(*m_pTempConfigFile);
+        QString errorMessage;
+        if (!serverConfig().save(*m_pTempConfigFile, &errorMessage))
+        {
+            QMessageBox::warning(this, tr("Invalid server configuration"),
+                                 errorMessage.isEmpty()
+                                     ? tr("The current server configuration is invalid.")
+                                     : errorMessage);
+            return "";
+        }
         filename = m_pTempConfigFile->fileName();
 
         m_pTempConfigFile->close();
@@ -704,7 +714,7 @@ QString MainWindow::appPath(const QString& name)
     return appConfig().barrierProgramDir() + name;
 }
 
-bool MainWindow::serverArgs(QStringList& args, QString& app)
+bool MainWindow::serverArgs(QStringList& args, QString& app, QString& configFilename)
 {
     app = appPath(appConfig().barriersName());
 
@@ -731,7 +741,9 @@ bool MainWindow::serverArgs(QStringList& args, QString& app)
         args << "--disable-client-cert-checking";
     }
 
-    QString configFilename = this->configFilename();
+    configFilename = this->configFilename();
+    if (configFilename.isEmpty())
+        return false;
 #if defined(Q_OS_WIN)
     // wrap in quotes in case username contains spaces.
     configFilename = QString("\"%1\"").arg(configFilename);
@@ -1089,10 +1101,14 @@ bool MainWindow::on_m_pButtonBrowseConfigFile_clicked()
 bool MainWindow::on_m_pActionSave_triggered()
 {
     QString fileName = QFileDialog::getSaveFileName(this, tr("Save configuration as..."), QString(), barrierConfigSaveFilter);
+    QString errorMessage;
 
-    if (!fileName.isEmpty() && !serverConfig().save(fileName))
+    if (!fileName.isEmpty() && !serverConfig().save(fileName, &errorMessage))
     {
-        QMessageBox::warning(this, tr("Save failed"), tr("Could not save configuration to file."));
+        QMessageBox::warning(this, tr("Save failed"),
+                             errorMessage.isEmpty()
+                                 ? tr("Could not save configuration to file.")
+                                 : errorMessage);
         return true;
     }
 
