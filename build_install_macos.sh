@@ -11,6 +11,7 @@ CLEAN_BUILD=0
 CONFIGURE_ONLY=0
 SIGN_APP=1
 DEPLOYMENT_TARGET=""
+CODESIGN_IDENTITY="${BARRIER_CODESIGN_IDENTITY:-}"
 
 usage() {
     cat <<EOF
@@ -25,6 +26,8 @@ Options:
   --install-dir <path> Override the application install directory
   --no-install         Build only, do not copy Barrier.app
   --no-sign            Build without code signing the app bundle
+  --codesign-identity <name>
+                       Use a fixed signing identity instead of ad-hoc signing
   --deployment-target <version>
                        Override CMAKE_OSX_DEPLOYMENT_TARGET
   --configure-only     Run CMake configure only
@@ -47,6 +50,29 @@ detect_macos_deployment_target() {
     else
         printf "10.9\n"
     fi
+}
+
+detect_existing_codesign_identity() {
+    local app_bundle=$1
+    local codesign_info
+    local authority
+
+    if [ ! -d "$app_bundle" ]; then
+        return 1
+    fi
+
+    codesign_info="$(codesign -dv --verbose=4 "$app_bundle" 2>&1 || true)"
+    if printf "%s\n" "$codesign_info" | grep -q '^Signature=adhoc$'; then
+        return 1
+    fi
+
+    authority="$(printf "%s\n" "$codesign_info" | awk -F= '/^Authority=/{print $2; exit}')"
+    if [ -n "$authority" ]; then
+        printf "%s\n" "$authority"
+        return 0
+    fi
+
+    return 1
 }
 
 copy_app() {
@@ -82,8 +108,19 @@ sign_app() {
         exit 1
     fi
 
-    printf "Signing app bundle: %s\n" "$app_bundle"
-    codesign --force --deep --sign - "$app_bundle"
+    if [ -z "$CODESIGN_IDENTITY" ]; then
+        local installed_app="${INSTALL_DIR}/Barrier.app"
+        if CODESIGN_IDENTITY="$(detect_existing_codesign_identity "$installed_app")"; then
+            printf "Reusing installed app signing identity: %s\n" "$CODESIGN_IDENTITY"
+        else
+            CODESIGN_IDENTITY="-"
+            printf "No stable signing identity found, falling back to ad-hoc signing.\n"
+            printf "Warning: ad-hoc signatures can cause macOS Accessibility permission prompts to reappear after rebuilds.\n"
+        fi
+    fi
+
+    printf "Signing app bundle with identity '%s': %s\n" "$CODESIGN_IDENTITY" "$app_bundle"
+    codesign --force --deep --sign "$CODESIGN_IDENTITY" "$app_bundle"
 }
 
 while [ $# -gt 0 ]; do
@@ -109,6 +146,11 @@ while [ $# -gt 0 ]; do
             ;;
         --no-sign)
             SIGN_APP=0
+            ;;
+        --codesign-identity)
+            shift
+            [ $# -gt 0 ] || { printf "Missing value for --codesign-identity\n" >&2; exit 1; }
+            CODESIGN_IDENTITY="$1"
             ;;
         --deployment-target)
             shift
