@@ -1,5 +1,3 @@
-cmake_minimum_required (VERSION 3.4)
-
 set (BARRIER_VERSION_MAJOR 2)
 set (BARRIER_VERSION_MINOR 4)
 set (BARRIER_VERSION_PATCH 0)
@@ -95,4 +93,3 @@ add_definitions (-DBARRIER_BUILD_NUMBER=${BARRIER_BUILD_NUMBER})
 if (BARRIER_DEVELOPER_MODE)
     add_definitions (-DBARRIER_DEVELOPER_MODE=1)
 endif()
-

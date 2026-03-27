@@ -88,6 +88,33 @@ install_dependencies() {
     sudo apt-get install -y "${APT_PACKAGES[@]}"
 }
 
+check_apt_dependencies() {
+    local package
+    local missing_packages=()
+
+    if ! command -v dpkg-query >/dev/null 2>&1; then
+        printf "Warning: dpkg-query not found; skipping package preflight.\n" >&2
+        return
+    fi
+
+    for package in "${APT_PACKAGES[@]}"; do
+        if ! dpkg-query -W -f='${db:Status-Status}\n' "$package" 2>/dev/null | grep -qx installed; then
+            missing_packages+=("$package")
+        fi
+    done
+
+    if [ "${#missing_packages[@]}" -eq 0 ]; then
+        return
+    fi
+
+    printf "Missing Ubuntu build dependencies:\n" >&2
+    printf "  %s\n" "${missing_packages[@]}" >&2
+    printf "\nInstall them with:\n  sudo apt-get update -y\n  sudo apt-get install -y" >&2
+    printf " %s" "${missing_packages[@]}" >&2
+    printf "\n\nOr rerun this script with --install-deps.\n" >&2
+    exit 1
+}
+
 install_barrier() {
     local build_dir=$1
     local prefix=$2
@@ -161,6 +188,8 @@ fi
 if [ "$INSTALL_DEPS" -eq 1 ]; then
     require_command sudo
     install_dependencies
+else
+    check_apt_dependencies
 fi
 
 cd "$ROOT_DIR"
@@ -189,7 +218,6 @@ printf "Configuring Barrier (%s)...\n" "$BUILD_TYPE"
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
     -D BARRIER_BUILD_INSTALLER=ON \
     -D BARRIER_BUILD_TESTS="$BUILD_TESTS" \
-    -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
     ${B_CMAKE_FLAGS:-}
 
 printf "Building Barrier...\n"
