@@ -488,7 +488,11 @@ static io_connect_t getEventDriver(void)
 
     if (!sEventDrvrRef) {
         // Get master device port
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 120000
+        kr = IOMainPort(MACH_PORT_NULL, &masterPort);
+#else
         kr = IOMasterPort(bootstrap_port, &masterPort);
+#endif
         assert(KERN_SUCCESS == kr);
 
         kr = IOServiceGetMatchingServices(masterPort,
@@ -513,6 +517,8 @@ void
 OSXKeyState::postHIDVirtualKey(const UInt8 virtualKeyCode,
                 const bool postDown)
 {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     static UInt32 modifiers = 0;
 
     NXEventData event;
@@ -578,6 +584,7 @@ OSXKeyState::postHIDVirtualKey(const UInt8 virtualKeyCode,
         assert(KERN_SUCCESS == kr);
         break;
     }
+#pragma clang diagnostic pop
 }
 
 void

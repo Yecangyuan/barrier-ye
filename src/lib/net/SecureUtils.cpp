@@ -52,6 +52,7 @@
 #include <openssl/x509.h>
 #include <openssl/x509v3.h>
 #include <openssl/pem.h>
+#include <openssl/rsa.h>
 #include <algorithm>
 #include <cstdio>
 #include <cstring>
@@ -70,10 +71,36 @@ namespace {
 const EVP_MD* get_digest_for_type(FingerprintType type)
 {
     switch (type) {
+        case FingerprintType::INVALID:
+            break;
         case FingerprintType::SHA1: return EVP_sha1();
         case FingerprintType::SHA256: return EVP_sha256();
     }
     throw std::runtime_error("Unknown fingerprint type " + std::to_string(static_cast<int>(type)));
+}
+
+EVP_PKEY* generate_rsa_private_key(int bits)
+{
+    auto* key_context = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+    if (!key_context) {
+        throw std::runtime_error("Could not allocate RSA key generation context");
+    }
+    auto key_context_free = finally([key_context]() { EVP_PKEY_CTX_free(key_context); });
+
+    if (EVP_PKEY_keygen_init(key_context) <= 0) {
+        throw std::runtime_error("Failed to initialize RSA key generation");
+    }
+
+    if (EVP_PKEY_CTX_set_rsa_keygen_bits(key_context, bits) <= 0) {
+        throw std::runtime_error("Failed to set RSA key size");
+    }
+
+    EVP_PKEY* private_key = nullptr;
+    if (EVP_PKEY_keygen(key_context, &private_key) <= 0 || !private_key) {
+        throw std::runtime_error("Failed to generate RSA key");
+    }
+
+    return private_key;
 }
 
 } // namespace
@@ -160,17 +187,11 @@ void generate_pem_self_signed_cert(const std::string& path)
 {
     auto expiration_days = 365;
 
-    auto* private_key = EVP_PKEY_new();
+    auto* private_key = generate_rsa_private_key(2048);
     if (!private_key) {
         throw std::runtime_error("Could not allocate private key for certificate");
     }
     auto private_key_free = finally([private_key](){ EVP_PKEY_free(private_key); });
-
-    auto* rsa = RSA_generate_key(2048, RSA_F4, nullptr, nullptr);
-    if (!rsa) {
-        throw std::runtime_error("Failed to generate RSA key");
-    }
-    EVP_PKEY_assign_RSA(private_key, rsa);
 
     auto* cert = X509_new();
     if (!cert) {

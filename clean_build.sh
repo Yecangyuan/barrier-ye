@@ -10,11 +10,21 @@ else
 fi
 # default build configuration
 B_BUILD_TYPE=${B_BUILD_TYPE:-Debug}
+
+detect_macos_deployment_target() {
+    if command -v sw_vers >/dev/null 2>&1; then
+        sw_vers -productVersion | awk -F. '{ if (NF >= 2) printf "%s.%s\n", $1, $2; else printf "%s.0\n", $1; }'
+    else
+        printf "10.9\n"
+    fi
+}
+
 if [ "$(uname)" = "Darwin" ]; then
     # OSX needs a lot of extra help, poor thing
     # run the osx_environment.sh script to fix paths
     . ./osx_environment.sh
-    B_CMAKE_FLAGS="-DCMAKE_OSX_SYSROOT=$(xcode-select --print-path)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -DCMAKE_OSX_DEPLOYMENT_TARGET=10.9 $B_CMAKE_FLAGS"
+    B_MACOS_DEPLOYMENT_TARGET=${B_MACOS_DEPLOYMENT_TARGET:-${MACOSX_DEPLOYMENT_TARGET:-$(detect_macos_deployment_target)}}
+    B_CMAKE_FLAGS="-DCMAKE_OSX_SYSROOT=$(xcode-select --print-path)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk -DCMAKE_OSX_DEPLOYMENT_TARGET=$B_MACOS_DEPLOYMENT_TARGET $B_CMAKE_FLAGS"
 fi
 # allow local customizations to build environment
 [ -r ./build_env.sh ] && . ./build_env.sh

@@ -69,11 +69,14 @@ mouseDown:(NSEvent *)theEvent
 	dragPosition.y -= 16;
 	imageLocation.origin = dragPosition;
 	imageLocation.size = NSMakeSize(32,32);
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 	[self dragPromisedFilesOfTypes:[NSArray arrayWithObject:m_dragFileExt]
 								fromRect:imageLocation
 								  source:self
 							   slideBack:NO
 								   event:theEvent];
+#pragma clang diagnostic pop
 }
 
 - (NSArray*)

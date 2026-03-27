@@ -21,6 +21,7 @@
 
 #include <QtCore/QSettings>
 #include <QtCore/QTextStream>
+#include <stdexcept>
 
 struct TestAction
 {
@@ -35,7 +36,7 @@ struct TestAction
                                       const std::vector<std::string>& type_screen_names = {})
     {
         TestAction action;
-        action.type = Action::keyDown;
+        action.type = type;
         action.keys = keys;
         action.type_screen_names = type_screen_names;
         return action;
@@ -129,6 +130,10 @@ namespace {
             case Action::lockCursorToScreen:
                 action.setLockCursorMode(test_action.lock_cursor_mode);
                 break;
+            case Action::mouseDown:
+            case Action::mouseUp:
+            case Action::mousebutton:
+                throw std::invalid_argument("Mouse actions are not supported by this test helper");
         }
         return action;
     }

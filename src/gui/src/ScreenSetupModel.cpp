@@ -31,7 +31,8 @@ ScreenSetupModel::ScreenSetupModel(std::vector<Screen>& screens, int numColumns,
     m_NumRows(numRows)
 {
     if (m_NumColumns * m_NumRows > screens.size())
-        qFatal("Not enough elements (%u) in screens QList for %d columns and %d rows", screens.size(), m_NumColumns, m_NumRows);
+        qFatal("Not enough elements (%zu) in screens QList for %d columns and %d rows",
+               static_cast<size_t>(screens.size()), m_NumColumns, m_NumRows);
 }
 
 QVariant ScreenSetupModel::data(const QModelIndex& index, int role) const
@@ -43,7 +44,7 @@ QVariant ScreenSetupModel::data(const QModelIndex& index, int role) const
             case Qt::DecorationRole:
                 if (screen(index).isNull())
                     break;
-                return QIcon(*screen(index).pixmap());
+                return QIcon(screen(index).pixmap());
 
             case Qt::ToolTipRole:
                 if (screen(index).isNull())
@@ -66,7 +67,7 @@ QVariant ScreenSetupModel::data(const QModelIndex& index, int role) const
 Qt::ItemFlags ScreenSetupModel::flags(const QModelIndex& index) const
 {
     if (!index.isValid() || index.row() >= m_NumRows || index.column() >= m_NumColumns)
-        return 0;
+        return {};
 
     if (!screen(index).isNull())
         return Qt::ItemIsEnabled | Qt::ItemIsDragEnabled | Qt::ItemIsSelectable | Qt::ItemIsDropEnabled;

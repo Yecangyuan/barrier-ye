@@ -26,6 +26,16 @@ NSWindow* g_dragWindow = NULL;
 OSXDragView* g_dragView = NULL;
 NSString* g_ext = NULL;
 
+static NSWindowStyleMask
+barrierBorderlessWindowMask()
+{
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
+    return NSWindowStyleMaskBorderless;
+#else
+    return NSBorderlessWindowMask;
+#endif
+}
+
 void
 runCocoaApp()
 {
@@ -35,7 +45,7 @@ runCocoaApp()
 
     NSWindow* window = [[NSWindow alloc]
 						initWithContentRect: NSMakeRect(0, 0, 3, 3)
-						styleMask: NSBorderlessWindowMask
+						styleMask: barrierBorderlessWindowMask()
 						backing: NSBackingStoreBuffered
 						defer: NO];
     [window setTitle: @""];

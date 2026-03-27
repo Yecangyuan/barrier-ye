@@ -16,6 +16,16 @@
 
 #import <Cocoa/Cocoa.h>
 
+static NSEventType
+barrierSystemDefinedEventType()
+{
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101200
+	return NSEventTypeSystemDefined;
+#else
+	return NSSystemDefined;
+#endif
+}
+
 int convertKeyIDToNXKeyType(KeyID id)
 {
 	// hidsystem/ev_keymap.h
@@ -71,14 +81,14 @@ bool
 fakeNativeMediaKey(KeyID id)
 {
 	
-	NSEvent* downRef = [NSEvent otherEventWithType:NSSystemDefined
+	NSEvent* downRef = [NSEvent otherEventWithType:barrierSystemDefinedEventType()
 					location: NSMakePoint(0, 0) modifierFlags:0xa00
 					timestamp:0 windowNumber:0 context:0 subtype:8
 					data1:(convertKeyIDToNXKeyType(id) << 16) | ((0xa) << 8)
 					data2:-1];
 	CGEventRef downEvent = [downRef CGEvent];
 	
-	NSEvent* upRef = [NSEvent otherEventWithType:NSSystemDefined
+	NSEvent* upRef = [NSEvent otherEventWithType:barrierSystemDefinedEventType()
 					location: NSMakePoint(0, 0) modifierFlags:0xa00
 					timestamp:0 windowNumber:0 context:0 subtype:8
 					data1:(convertKeyIDToNXKeyType(id) << 16) | ((0xb) << 8)

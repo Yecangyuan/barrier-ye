@@ -21,17 +21,31 @@
 CFStringRef
 getDraggedFileURL()
 {
+	NSPasteboard* pboard;
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
+	pboard = [NSPasteboard pasteboardWithName:NSPasteboardNameDrag];
+#else
 	NSString* pbName = NSDragPboard;
-	NSPasteboard* pboard = [NSPasteboard pasteboardWithName:pbName];
+	pboard = [NSPasteboard pasteboardWithName:pbName];
+#endif
 	
 	NSMutableString* string;
 	string = [[NSMutableString alloc] initWithCapacity:0];
 
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 101300
+	NSArray<NSURL*>* files = [pboard readObjectsForClasses:@[[NSURL class]]
+	                                               options:@{NSPasteboardURLReadingFileURLsOnlyKey: @YES}];
+	for (NSURL* file in files) {
+		[string appendString:file.path];
+		[string appendString: @"\0"];
+	}
+#else
 	NSArray* files = [pboard propertyListForType:NSFilenamesPboardType];
 	for (id file in files) {
 		[string appendString: (NSString*)file];
 		[string appendString: @"\0"];
 	}
+#endif
 	
 	return (CFStringRef)string;
 }

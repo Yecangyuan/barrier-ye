@@ -172,24 +172,25 @@ Log::print(const char* file, int line, const char* fmt, ...)
         time_t t;
         time(&t);
         tm = localtime(&t);
-        sprintf(timestamp, "%04i-%02i-%02iT%02i:%02i:%02i", tm->tm_year + 1900, tm->tm_mon+1, tm->tm_mday, tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-        // square brackets, spaces, comma and null terminator take about 10
-        size_t size = 10;
-        size += strlen(timestamp);
-        size += strlen(g_priority[priority]);
-        size += strlen(buffer);
-#ifndef NDEBUG
-        size += strlen(file);
-        // assume there is no file contains over 100k lines of code
-        size += 6;
-#endif
-        char* message = new char[size];
+        std::snprintf(timestamp, sizeof(timestamp), "%04i-%02i-%02iT%02i:%02i:%02i",
+                      tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                      tm->tm_hour, tm->tm_min, tm->tm_sec);
 
 #ifndef NDEBUG
-        sprintf(message, "[%s] %s: %s\n\t%s,%d", timestamp, g_priority[priority], buffer, file, line);
+        const int messageLength = std::snprintf(nullptr, 0, "[%s] %s: %s\n\t%s,%d",
+                                                timestamp, g_priority[priority], buffer, file, line);
 #else
-        sprintf(message, "[%s] %s: %s", timestamp, g_priority[priority], buffer);
+        const int messageLength = std::snprintf(nullptr, 0, "[%s] %s: %s",
+                                                timestamp, g_priority[priority], buffer);
+#endif
+        char* message = new char[static_cast<size_t>(messageLength) + 1];
+
+#ifndef NDEBUG
+        std::snprintf(message, static_cast<size_t>(messageLength) + 1, "[%s] %s: %s\n\t%s,%d",
+                      timestamp, g_priority[priority], buffer, file, line);
+#else
+        std::snprintf(message, static_cast<size_t>(messageLength) + 1, "[%s] %s: %s",
+                      timestamp, g_priority[priority], buffer);
 #endif
 
         output(priority, message);

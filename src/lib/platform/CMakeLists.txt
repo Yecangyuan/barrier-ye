@@ -37,10 +37,10 @@ endif()
 
 include_directories(${inc})
 add_library(platform STATIC ${sources})
-target_link_libraries(platform client ${libs})
-
 if (UNIX)
     target_link_libraries(platform io net ipc synlib client ${libs})
+else()
+    target_link_libraries(platform client ${libs})
 endif()
 
 if (APPLE)

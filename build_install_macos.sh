@@ -10,6 +10,7 @@ INSTALL_APP=1
 CLEAN_BUILD=0
 CONFIGURE_ONLY=0
 SIGN_APP=1
+DEPLOYMENT_TARGET=""
 
 usage() {
     cat <<EOF
@@ -24,6 +25,8 @@ Options:
   --install-dir <path> Override the application install directory
   --no-install         Build only, do not copy Barrier.app
   --no-sign            Build without code signing the app bundle
+  --deployment-target <version>
+                       Override CMAKE_OSX_DEPLOYMENT_TARGET
   --configure-only     Run CMake configure only
   --clean              Remove the build directory before configuring
   -h, --help           Show this help
@@ -35,6 +38,14 @@ require_command() {
     if ! command -v "$cmd" >/dev/null 2>&1; then
         printf "Missing required command: %s\n" "$cmd" >&2
         exit 1
+    fi
+}
+
+detect_macos_deployment_target() {
+    if command -v sw_vers >/dev/null 2>&1; then
+        sw_vers -productVersion | awk -F. '{ if (NF >= 2) printf "%s.%s\n", $1, $2; else printf "%s.0\n", $1; }'
+    else
+        printf "10.9\n"
     fi
 }
 
@@ -99,6 +110,11 @@ while [ $# -gt 0 ]; do
         --no-sign)
             SIGN_APP=0
             ;;
+        --deployment-target)
+            shift
+            [ $# -gt 0 ] || { printf "Missing value for --deployment-target\n" >&2; exit 1; }
+            DEPLOYMENT_TARGET="$1"
+            ;;
         --configure-only)
             CONFIGURE_ONLY=1
             INSTALL_APP=0
@@ -122,6 +138,10 @@ done
 if [ "$(uname)" != "Darwin" ]; then
     printf "This script only supports macOS.\n" >&2
     exit 1
+fi
+
+if [ -z "$DEPLOYMENT_TARGET" ]; then
+    DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-$(detect_macos_deployment_target)}"
 fi
 
 require_command git
@@ -163,6 +183,7 @@ else
 fi
 
 printf "Configuring Barrier (%s)...\n" "$BUILD_TYPE"
+printf "Using macOS deployment target: %s\n" "$DEPLOYMENT_TARGET"
 "$CMAKE_BIN" \
     -S "$ROOT_DIR" \
     -B "$BUILD_DIR" \
@@ -170,7 +191,7 @@ printf "Configuring Barrier (%s)...\n" "$BUILD_TYPE"
     -D BARRIER_BUILD_INSTALLER=ON \
     -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -D CMAKE_OSX_SYSROOT="$SDK_PATH" \
-    -D CMAKE_OSX_DEPLOYMENT_TARGET=10.9 \
+    -D CMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \
     ${B_CMAKE_FLAGS:-}
 
 if [ "$CONFIGURE_ONLY" -eq 1 ]; then
