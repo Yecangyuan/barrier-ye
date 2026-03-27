@@ -10,6 +10,7 @@ config.h
 /lib
 /build
 /build-macos
+/build-ubuntu
 /CMakeFiles
 /ext/cryptopp562
 /ext/openssl
