@@ -56,65 +56,38 @@ void IpcReader::read()
     QMutexLocker locker(&m_Mutex);
     IPC_LOG(std::cout << "ready read" << std::endl);
 
-    while (m_Socket->bytesAvailable()) {
-        IPC_LOG(std::cout << "bytes available" << std::endl);
+    m_Buffer += m_Socket->readAll();
 
-        char codeBuf[5];
-        readStream(codeBuf, 4);
-        codeBuf[4] = 0;
-        IPC_LOG(std::cout << "ipc read: " << codeBuf << std::endl);
-
-        if (memcmp(codeBuf, kIpcMsgLogLine, 4) == 0) {
-            IPC_LOG(std::cout << "reading log line" << std::endl);
-
-            char lenBuf[4];
-            readStream(lenBuf, 4);
-            int len = bytesToInt(lenBuf, 4);
-
-            char* data = new char[len];
-            readStream(data, len);
-            QString line = QString::fromUtf8(data, len);
-            delete[] data;
-
-            readLogLine(line);
+    while (true) {
+        if (m_Buffer.size() < 8) {
+            break;
         }
-        else {
+
+        const char* data = m_Buffer.constData();
+        if (memcmp(data, kIpcMsgLogLine, 4) != 0) {
             IPC_LOG(std::cerr << "aborting, message invalid" << std::endl);
+            m_Buffer.clear();
             return;
         }
+
+        const int len = bytesToInt(data + 4, 4);
+        if (len < 0) {
+            IPC_LOG(std::cerr << "aborting, message length invalid" << std::endl);
+            m_Buffer.clear();
+            return;
+        }
+
+        const int messageSize = 8 + len;
+        if (m_Buffer.size() < messageSize) {
+            break;
+        }
+
+        IPC_LOG(std::cout << "reading log line" << std::endl);
+        readLogLine(QString::fromUtf8(data + 8, len));
+        m_Buffer.remove(0, messageSize);
     }
 
     IPC_LOG(std::cout << "read done" << std::endl);
-}
-
-bool IpcReader::readStream(char* buffer, int length)
-{
-    IPC_LOG(std::cout << "reading stream" << std::endl);
-
-    int read = 0;
-    while (read < length) {
-        int ask = length - read;
-        if (m_Socket->bytesAvailable() < ask) {
-            IPC_LOG(std::cout << "buffer too short, waiting" << std::endl);
-            m_Socket->waitForReadyRead(-1);
-        }
-
-        int got = m_Socket->read(buffer, ask);
-        read += got;
-
-        IPC_LOG(std::cout << "> ask=" << ask << " got=" << got
-            << " read=" << read << std::endl);
-
-        if (got == -1) {
-            IPC_LOG(std::cout << "socket ended, aborting" << std::endl);
-            return false;
-        }
-        else if (length - read > 0) {
-            IPC_LOG(std::cout << "more remains, seek to " << got << std::endl);
-            buffer += got;
-        }
-    }
-    return true;
 }
 
 int IpcReader::bytesToInt(const char *buffer, int size)

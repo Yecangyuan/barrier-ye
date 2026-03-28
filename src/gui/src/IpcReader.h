@@ -19,6 +19,7 @@
 #pragma once
 
 #include <QObject>
+#include <QByteArray>
 #include <QMutex>
 
 class QTcpSocket;
@@ -37,7 +38,6 @@ signals:
     void readLogLine(const QString& text);
 
 private:
-    bool readStream(char* buffer, int length);
     int bytesToInt(const char* buffer, int size);
 
 private slots:
@@ -45,5 +45,6 @@ private slots:
 
 private:
     QTcpSocket* m_Socket;
+    QByteArray m_Buffer;
     QMutex m_Mutex;
 };

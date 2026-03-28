@@ -53,11 +53,28 @@ ScreenSetupModel* ScreenSetupView::model() const
 
 void ScreenSetupView::setTableSize()
 {
-    for (int i = 0; i < model()->columnCount(); i++)
-        setColumnWidth(i, width() / model()->columnCount());
+    ScreenSetupModel* screenModel = model();
+    if (screenModel == nullptr) {
+        return;
+    }
 
-    for (int i = 0; i < model()->rowCount(); i++)
-        setRowHeight(i, height() / model()->rowCount());
+    const int columns = screenModel->columnCount();
+    const int rows = screenModel->rowCount();
+
+    if (columns <= 0 || rows <= 0) {
+        return;
+    }
+
+    const int columnWidth = width() / columns;
+    const int rowHeight = height() / rows;
+
+    for (int i = 0; i < columns; i++) {
+        setColumnWidth(i, columnWidth);
+    }
+
+    for (int i = 0; i < rows; i++) {
+        setRowHeight(i, rowHeight);
+    }
 }
 
 void ScreenSetupView::resizeEvent(QResizeEvent* event)

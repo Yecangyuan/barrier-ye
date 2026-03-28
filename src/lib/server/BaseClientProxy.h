@@ -61,6 +61,7 @@ public:
     // IScreen
     virtual void*        getEventTarget() const = 0;
     virtual bool        getClipboard(ClipboardID id, IClipboard*) const = 0;
+    virtual bool        getClipboardData(ClipboardID, std::string&) const { return false; }
     virtual void        getShape(SInt32& x, SInt32& y,
                             SInt32& width, SInt32& height) const = 0;
     virtual void        getCursorPos(SInt32& x, SInt32& y) const = 0;
@@ -71,6 +72,7 @@ public:
                             bool forScreensaver) = 0;
     virtual bool        leave() = 0;
     virtual void        setClipboard(ClipboardID, const IClipboard*) = 0;
+    virtual bool        setClipboardData(ClipboardID, const std::string&) { return false; }
     virtual void        grabClipboard(ClipboardID) = 0;
     virtual void        setClipboardDirty(ClipboardID, bool) = 0;
     virtual void        keyDown(KeyID, KeyModifierMask, KeyButton) = 0;

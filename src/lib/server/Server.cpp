@@ -511,7 +511,9 @@ Server::switchScreen(BaseClientProxy* dst,
 		if (m_enableClipboard) {
 			// send the clipboard data to new active screen
 			for (ClipboardID id = 0; id < kClipboardEnd; ++id) {
-				m_active->setClipboard(id, &m_clipboards[id].m_clipboard);
+				if (!m_active->setClipboardData(id, m_clipboards[id].m_clipboardData)) {
+					m_active->setClipboard(id, &m_clipboards[id].m_clipboard);
+				}
 			}
 		}
 
@@ -1548,14 +1550,21 @@ Server::onClipboardChanged(BaseClientProxy* sender,
 	// should be the expected client
 	assert(sender == m_clients.find(clipboard.m_clipboardOwner)->second);
 
-	// get data
-	sender->getClipboard(id, &clipboard.m_clipboard);
-
-	// ignore if data hasn't changed
-    std::string data = clipboard.m_clipboard.marshall();
-	if (data == clipboard.m_clipboardData) {
-		LOG((CLOG_DEBUG "ignored screen \"%s\" update of clipboard %d (unchanged)", clipboard.m_clipboardOwner.c_str(), id));
-		return;
+	std::string data;
+	if (sender->getClipboardData(id, data)) {
+		if (data == clipboard.m_clipboardData) {
+			LOG((CLOG_DEBUG "ignored screen \"%s\" update of clipboard %d (unchanged)", clipboard.m_clipboardOwner.c_str(), id));
+			return;
+		}
+		clipboard.m_clipboard.unmarshall(data, 0);
+	}
+	else {
+		sender->getClipboard(id, &clipboard.m_clipboard);
+		data = clipboard.m_clipboard.marshall();
+		if (data == clipboard.m_clipboardData) {
+			LOG((CLOG_DEBUG "ignored screen \"%s\" update of clipboard %d (unchanged)", clipboard.m_clipboardOwner.c_str(), id));
+			return;
+		}
 	}
 
 	// got new data
@@ -1570,7 +1579,9 @@ Server::onClipboardChanged(BaseClientProxy* sender,
 	}
 
 	// send the new clipboard to the active screen
-	m_active->setClipboard(id, &clipboard.m_clipboard);
+	if (!m_active->setClipboardData(id, clipboard.m_clipboardData)) {
+		m_active->setClipboard(id, &clipboard.m_clipboard);
+	}
 }
 
 void

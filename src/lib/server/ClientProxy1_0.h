@@ -34,6 +34,7 @@ public:
 
     // IScreen
     virtual bool        getClipboard(ClipboardID id, IClipboard*) const;
+    virtual bool        getClipboardData(ClipboardID id, std::string& data) const;
     virtual void        getShape(SInt32& x, SInt32& y,
                             SInt32& width, SInt32& height) const;
     virtual void        getCursorPos(SInt32& x, SInt32& y) const;
@@ -44,6 +45,7 @@ public:
                             bool forScreensaver);
     virtual bool        leave();
     virtual void        setClipboard(ClipboardID, const IClipboard*);
+    virtual bool        setClipboardData(ClipboardID id, const std::string& data);
     virtual void        grabClipboard(ClipboardID);
     virtual void        setClipboardDirty(ClipboardID, bool);
     virtual void        keyDown(KeyID, KeyModifierMask, KeyButton);
@@ -90,6 +92,7 @@ protected:
 
     public:
         Clipboard        m_clipboard;
+        std::string      m_clipboardData;
         UInt32            m_sequenceNumber;
         bool            m_dirty;
     };

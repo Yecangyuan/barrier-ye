@@ -30,6 +30,7 @@ public:
     ~ClientProxy1_6();
 
     virtual void        setClipboard(ClipboardID id, const IClipboard* clipboard);
+    virtual bool        setClipboardData(ClipboardID id, const std::string& data);
     virtual bool        recvClipboard();
 
 private:

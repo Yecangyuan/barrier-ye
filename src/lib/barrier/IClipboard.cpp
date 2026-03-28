@@ -19,6 +19,8 @@
 #include "barrier/IClipboard.h"
 #include "common/stdvector.h"
 
+#include <array>
+
 //
 // IClipboard
 //
@@ -77,8 +79,7 @@ IClipboard::marshall(const IClipboard* clipboard)
 
     String data;
 
-    std::vector<String> formatData;
-    formatData.resize(IClipboard::kNumFormats);
+    std::array<String, IClipboard::kNumFormats> formatData;
     // FIXME -- use current time
     if (clipboard->open(0)) {
 

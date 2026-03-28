@@ -53,13 +53,30 @@ ClientProxy1_6::setClipboard(ClipboardID id, const IClipboard* clipboard)
         m_clipboard[id].m_dirty = false;
         Clipboard::copy(&m_clipboard[id].m_clipboard, clipboard);
 
-        std::string data = m_clipboard[id].m_clipboard.marshall();
-
-        size_t size = data.size();
+        m_clipboard[id].m_clipboardData = m_clipboard[id].m_clipboard.marshall();
+        const size_t size = m_clipboard[id].m_clipboardData.size();
         LOG((CLOG_DEBUG "sending clipboard %d to \"%s\"", id, getName().c_str()));
 
-        StreamChunker::sendClipboard(data, size, id, 0, m_events, this);
+        StreamChunker::sendClipboard(m_clipboard[id].m_clipboardData, size, id, 0, m_events, this);
     }
+}
+
+bool
+ClientProxy1_6::setClipboardData(ClipboardID id, const std::string& data)
+{
+    if (!m_clipboard[id].m_dirty) {
+        return true;
+    }
+
+    m_clipboard[id].m_dirty = false;
+    m_clipboard[id].m_clipboardData = data;
+    m_clipboard[id].m_clipboard.unmarshall(data, 0);
+
+    LOG((CLOG_DEBUG "sending clipboard %d to \"%s\"", id, getName().c_str()));
+    StreamChunker::sendClipboard(m_clipboard[id].m_clipboardData,
+                                 m_clipboard[id].m_clipboardData.size(),
+                                 id, 0, m_events, this);
+    return true;
 }
 
 void
@@ -86,7 +103,8 @@ ClientProxy1_6::recvClipboard()
         LOG((CLOG_DEBUG "received client \"%s\" clipboard %d seqnum=%d, size=%d",
                 getName().c_str(), id, seq, dataCached.size()));
         // save clipboard
-        m_clipboard[id].m_clipboard.unmarshall(dataCached, 0);
+        m_clipboard[id].m_clipboardData = dataCached;
+        m_clipboard[id].m_clipboard.unmarshall(m_clipboard[id].m_clipboardData, 0);
         m_clipboard[id].m_sequenceNumber = seq;
 
         // notify

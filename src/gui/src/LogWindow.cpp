@@ -32,6 +32,7 @@ LogWindow::LogWindow(QWidget *parent) :
     // repeatedly until Barrier is finished
     setAttribute(Qt::WA_DeleteOnClose, false);
     setupUi(this);
+    m_pLogOutput->document()->setMaximumBlockCount(5000);
 }
 
 void LogWindow::startNewInstance()

@@ -254,6 +254,13 @@ ClientProxy1_0::getClipboard(ClipboardID id, IClipboard* clipboard) const
     return true;
 }
 
+bool
+ClientProxy1_0::getClipboardData(ClipboardID id, std::string& data) const
+{
+    data = m_clipboard[id].m_clipboardData;
+    return !data.empty();
+}
+
 void
 ClientProxy1_0::getShape(SInt32& x, SInt32& y, SInt32& w, SInt32& h) const
 {
@@ -294,6 +301,12 @@ void
 ClientProxy1_0::setClipboard(ClipboardID id, const IClipboard* clipboard)
 {
     // ignore -- deprecated in protocol 1.0
+}
+
+bool
+ClientProxy1_0::setClipboardData(ClipboardID, const std::string&)
+{
+    return false;
 }
 
 void
@@ -495,6 +508,7 @@ ClientProxy1_0::recvGrabClipboard()
 
 ClientProxy1_0::ClientClipboard::ClientClipboard() :
     m_clipboard(),
+    m_clipboardData(),
     m_sequenceNumber(0),
     m_dirty(true)
 {
