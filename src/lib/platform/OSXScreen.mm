@@ -69,6 +69,33 @@ void avoidHesitatingCursor();
 bool					OSXScreen::s_testedForGHOM = false;
 bool					OSXScreen::s_hasGHOM	    = false;
 
+namespace {
+
+bool barrierHasAccessibilityAccess(bool prompt)
+{
+#if defined(MAC_OS_X_VERSION_10_9)
+	if (AXIsProcessTrusted()) {
+		return true;
+	}
+
+	if (!prompt) {
+		return false;
+	}
+
+	const void* keys[] = { kAXTrustedCheckOptionPrompt };
+	const void* values[] = { kCFBooleanTrue };
+	CFDictionaryRef options = CFDictionaryCreate(nullptr, keys, values, 1, nullptr, nullptr);
+	const bool trusted = AXIsProcessTrustedWithOptions(options);
+	CFRelease(options);
+	return trusted;
+#else
+	Q_UNUSED(prompt);
+	return AXAPIEnabled();
+#endif
+}
+
+} // namespace
+
 OSXScreen::OSXScreen(IEventQueue* events, bool isPrimary, bool autoShowHideCursor) :
 	PlatformScreen(events),
 	m_isPrimary(isPrimary),
@@ -114,8 +141,7 @@ OSXScreen::OSXScreen(IEventQueue* events, bool isPrimary, bool autoShowHideCurso
 		if (m_isPrimary) {
 
 #if defined(MAC_OS_X_VERSION_10_9)
-			// we can't pass options to show the dialog, this must be done by the gui.
-			if (!AXIsProcessTrusted()) {
+			if (!barrierHasAccessibilityAccess(true)) {
 				throw XArch("assistive devices does not trust this process, allow it in system settings.");
 			}
 #else
