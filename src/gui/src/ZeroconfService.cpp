@@ -18,6 +18,7 @@
 #include "ZeroconfService.h"
 
 #include "MainWindow.h"
+#include "ZeroconfAddress.h"
 #include "ZeroconfRegister.h"
 #include "ZeroconfBrowser.h"
 
@@ -33,12 +34,6 @@
 #else
 #include <stdlib.h>
 #endif
-
-static const QStringList preferedIPAddress(
-                QStringList() <<
-                "192.168." <<
-                "10." <<
-                "172.");
 
 const char* ZeroconfService:: m_ServerServiceName = "_barrierServerZeroconf._tcp";
 const char* ZeroconfService:: m_ClientServiceName = "_barrierClientZeroconf._tcp";
@@ -126,23 +121,7 @@ void ZeroconfService::errorHandle(DNSServiceErrorType errorCode)
 
 QString ZeroconfService::getLocalIPAddresses()
 {
-    QStringList addresses;
-    for (const QHostAddress& address : QNetworkInterface::allAddresses()) {
-        if (address.protocol() == QAbstractSocket::IPv4Protocol &&
-            address != QHostAddress(QHostAddress::LocalHost)) {
-            addresses.append(address.toString());
-        }
-    }
-
-    for (const QString& preferedIP : preferedIPAddress) {
-        for (const QString& address : addresses) {
-            if (address.startsWith(preferedIP)) {
-                return address;
-            }
-        }
-    }
-
-    return "";
+    return selectZeroconfServiceAddress(getZeroconfCandidateAddresses());
 }
 
 bool ZeroconfService::registerService(bool server)

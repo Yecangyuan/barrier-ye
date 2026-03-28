@@ -11,12 +11,14 @@ set(GUI_COMMON_SOURCE_FILES
     src/Action.cpp
     src/Hotkey.cpp
     src/KeySequence.cpp
+    src/ZeroconfAddress.cpp
 )
 
 set(GUI_COMMON_HEADER_FILES
     src/Action.h
     src/Hotkey.h
     src/KeySequence.h
+    src/ZeroconfAddress.h
 )
 
 set(GUI_SOURCE_FILES
@@ -165,6 +167,7 @@ if (BARRIER_BUILD_TESTS)
     set(GUI_TEST_SOURCE_FILES
         test/KeySequenceTests.cpp
         test/HotkeyTests.cpp
+        test/ZeroconfAddressTests.cpp
         test/main.cpp
     )
 
