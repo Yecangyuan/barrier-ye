@@ -12,6 +12,7 @@ CONFIGURE_ONLY=0
 SIGN_APP=1
 DEPLOYMENT_TARGET=""
 CODESIGN_IDENTITY="${BARRIER_CODESIGN_IDENTITY:-}"
+BUNDLE_ID="${BARRIER_BUNDLE_ID:-io.github.yecangyuan.barrier-ye}"
 
 usage() {
     cat <<EOF
@@ -28,6 +29,7 @@ Options:
   --no-sign            Build without code signing the app bundle
   --codesign-identity <name>
                        Use a fixed signing identity instead of ad-hoc signing
+  --bundle-id <id>     Override CFBundleIdentifier for Barrier.app
   --deployment-target <version>
                        Override CMAKE_OSX_DEPLOYMENT_TARGET
   --configure-only     Run CMake configure only
@@ -152,6 +154,11 @@ while [ $# -gt 0 ]; do
             [ $# -gt 0 ] || { printf "Missing value for --codesign-identity\n" >&2; exit 1; }
             CODESIGN_IDENTITY="$1"
             ;;
+        --bundle-id)
+            shift
+            [ $# -gt 0 ] || { printf "Missing value for --bundle-id\n" >&2; exit 1; }
+            BUNDLE_ID="$1"
+            ;;
         --deployment-target)
             shift
             [ $# -gt 0 ] || { printf "Missing value for --deployment-target\n" >&2; exit 1; }
@@ -226,11 +233,13 @@ fi
 
 printf "Configuring Barrier (%s)...\n" "$BUILD_TYPE"
 printf "Using macOS deployment target: %s\n" "$DEPLOYMENT_TARGET"
+printf "Using macOS bundle identifier: %s\n" "$BUNDLE_ID"
 "$CMAKE_BIN" \
     -S "$ROOT_DIR" \
     -B "$BUILD_DIR" \
     -D CMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -D BARRIER_BUILD_INSTALLER=ON \
+    -D BARRIER_BUNDLE_ID="$BUNDLE_ID" \
     -D CMAKE_POLICY_VERSION_MINIMUM=3.5 \
     -D CMAKE_OSX_SYSROOT="$SDK_PATH" \
     -D CMAKE_OSX_DEPLOYMENT_TARGET="$DEPLOYMENT_TARGET" \

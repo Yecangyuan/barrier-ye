@@ -10,7 +10,7 @@
     <key>CFBundleIconFile</key>
     <string>Barrier.icns</string>
     <key>CFBundleIdentifier</key>
-    <string>barrier</string>
+    <string>@BARRIER_BUNDLE_ID@</string>
     <!-- TODO: Fix this in v2.0 //-->
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
