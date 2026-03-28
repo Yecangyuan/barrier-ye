@@ -38,7 +38,7 @@ LogWindow::LogWindow(QWidget *parent) :
 void LogWindow::startNewInstance()
 {
     // put a space between last log output and new instance.
-    if (!m_pLogOutput->toPlainText().isEmpty())
+    if (!m_pLogOutput->document()->isEmpty())
         appendRaw("");
 }
 
@@ -59,7 +59,7 @@ void LogWindow::appendError(const QString& text)
 
 void LogWindow::appendRaw(const QString& text)
 {
-    m_pLogOutput->append(text);
+    m_pLogOutput->appendPlainText(text);
 }
 
 void LogWindow::on_m_pButtonHide_clicked()
