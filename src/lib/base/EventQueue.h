@@ -26,6 +26,7 @@
 #include "base/Stopwatch.h"
 #include "common/stdmap.h"
 #include "common/stdset.h"
+#include "common/stdvector.h"
 #include "base/NonBlockingStream.h"
 
 #include <mutex>
@@ -103,7 +104,7 @@ private:
 
     typedef std::set<EventQueueTimer*> Timers;
     typedef PriorityQueue<Timer> TimerQueue;
-    typedef std::map<UInt32, Event> EventTable;
+    typedef std::vector<Event> EventTable;
     typedef std::vector<UInt32> EventIDList;
     typedef std::map<Event::Type, const char*> TypeMap;
     typedef std::map<std::string, Event::Type> NameMap;

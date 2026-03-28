@@ -178,16 +178,20 @@ EventQueue::adoptBuffer(IEventQueueBuffer* buffer)
 
     LOG((CLOG_DEBUG "adopting new buffer"));
 
-    if (m_events.size() != 0) {
+    const int numPendingEvents =
+        static_cast<int>(m_events.size() - m_oldEventIDs.size());
+    if (numPendingEvents != 0) {
         // this can come as a nasty surprise to programmers expecting
         // their events to be raised, only to have them deleted.
-        LOG((CLOG_DEBUG "discarding %d event(s)", m_events.size()));
+        LOG((CLOG_DEBUG "discarding %d event(s)", numPendingEvents));
     }
 
     // discard old buffer and old events
     delete m_buffer;
     for (EventTable::iterator i = m_events.begin(); i != m_events.end(); ++i) {
-        Event::deleteData(i->second);
+        if (i->getType() != Event::kUnknown) {
+            Event::deleteData(*i);
+        }
     }
     m_events.clear();
     m_oldEventIDs.clear();
@@ -455,34 +459,34 @@ UInt32
 EventQueue::saveEvent(const Event& event)
 {
     // choose id
-    UInt32 id;
     if (!m_oldEventIDs.empty()) {
         // reuse an id
-        id = m_oldEventIDs.back();
+        const UInt32 id = m_oldEventIDs.back();
         m_oldEventIDs.pop_back();
-    }
-    else {
-        // make a new id
-        id = static_cast<UInt32>(m_events.size());
+        m_events[id] = event;
+        return id;
     }
 
-    // save data
-    m_events[id] = event;
+    // make a new id
+    const UInt32 id = static_cast<UInt32>(m_events.size());
+    m_events.push_back(event);
     return id;
 }
 
 Event
 EventQueue::removeEvent(UInt32 eventID)
 {
-    // look up id
-    EventTable::iterator index = m_events.find(eventID);
-    if (index == m_events.end()) {
+    if (eventID >= m_events.size()) {
         return Event();
     }
 
-    // get data
-    Event event = index->second;
-    m_events.erase(index);
+    Event& savedEvent = m_events[eventID];
+    if (savedEvent.getType() == Event::kUnknown) {
+        return Event();
+    }
+
+    Event event = savedEvent;
+    savedEvent = Event();
 
     // save old id for reuse
     m_oldEventIDs.push_back(eventID);
