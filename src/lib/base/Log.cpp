@@ -27,6 +27,68 @@
 #include <iostream>
 #include <ctime>
 
+namespace {
+
+const char* getTimestamp()
+{
+    thread_local time_t s_cachedTime = 0;
+    thread_local char s_timestamp[20] = "";
+
+    time_t now;
+    time(&now);
+    if (now != s_cachedTime) {
+        s_cachedTime = now;
+        struct tm* tm = localtime(&now);
+        std::snprintf(s_timestamp, sizeof(s_timestamp), "%04i-%02i-%02iT%02i:%02i:%02i",
+                      tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
+                      tm->tm_hour, tm->tm_min, tm->tm_sec);
+    }
+
+    return s_timestamp;
+}
+
+char* formatLogPrefix(const char* timestamp, const char* priorityLabel,
+                      const char* buffer, const char* file, int line)
+{
+    char stack[1280];
+    char* message = stack;
+    int len = static_cast<int>(sizeof(stack) / sizeof(stack[0]));
+
+    while (true) {
+#ifndef NDEBUG
+        const int n = std::snprintf(message, static_cast<size_t>(len),
+                                    "[%s] %s: %s\n\t%s,%d",
+                                    timestamp, priorityLabel, buffer, file, line);
+#else
+        const int n = std::snprintf(message, static_cast<size_t>(len),
+                                    "[%s] %s: %s",
+                                    timestamp, priorityLabel, buffer);
+#endif
+        if (n < 0) {
+            if (message != stack) {
+                delete[] message;
+            }
+            return nullptr;
+        }
+        if (n < len) {
+            if (message == stack) {
+                const size_t size = static_cast<size_t>(n) + 1;
+                char* result = new char[size];
+                std::memcpy(result, message, size);
+                return result;
+            }
+            return message;
+        }
+        if (message != stack) {
+            delete[] message;
+        }
+        len = n + 1;
+        message = new char[static_cast<size_t>(len)];
+    }
+}
+
+} // namespace
+
 // names of priorities
 static const char*        g_priority[] = {
     "FATAL",
@@ -63,7 +125,7 @@ Log::Log()
     assert(s_log == NULL);
 
     // other initialization
-    m_maxPriority = g_defaultMaxPriority;
+    m_maxPriority.store(g_defaultMaxPriority, std::memory_order_relaxed);
     m_maxNewlineLength = 0;
     insert(new ConsoleLogOutputter);
 
@@ -115,7 +177,7 @@ Log::print(const char* file, int line, const char* fmt, ...)
 {
     // check if fmt begins with a priority argument
     ELevel priority = kINFO;
-    if ((strlen(fmt) > 2) && (fmt[0] == '%' && fmt[1] == 'z')) {
+    if (fmt[0] == '%' && fmt[1] == 'z' && fmt[2] != '\0') {
 
         // 060 in octal is 0 (48 in decimal), so subtracting this converts ascii
         // number it a true number. we could use atoi instead, but this is how
@@ -166,35 +228,11 @@ Log::print(const char* file, int line, const char* fmt, ...)
     // print the prefix to the buffer.    leave space for priority label.
     // do not prefix time and file for kPRINT (CLOG_PRINT)
     if (priority != kPRINT) {
-
-        struct tm *tm;
-        char timestamp[50];
-        time_t t;
-        time(&t);
-        tm = localtime(&t);
-        std::snprintf(timestamp, sizeof(timestamp), "%04i-%02i-%02iT%02i:%02i:%02i",
-                      tm->tm_year + 1900, tm->tm_mon + 1, tm->tm_mday,
-                      tm->tm_hour, tm->tm_min, tm->tm_sec);
-
-#ifndef NDEBUG
-        const int messageLength = std::snprintf(nullptr, 0, "[%s] %s: %s\n\t%s,%d",
-                                                timestamp, g_priority[priority], buffer, file, line);
-#else
-        const int messageLength = std::snprintf(nullptr, 0, "[%s] %s: %s",
-                                                timestamp, g_priority[priority], buffer);
-#endif
-        char* message = new char[static_cast<size_t>(messageLength) + 1];
-
-#ifndef NDEBUG
-        std::snprintf(message, static_cast<size_t>(messageLength) + 1, "[%s] %s: %s\n\t%s,%d",
-                      timestamp, g_priority[priority], buffer, file, line);
-#else
-        std::snprintf(message, static_cast<size_t>(messageLength) + 1, "[%s] %s: %s",
-                      timestamp, g_priority[priority], buffer);
-#endif
-
-        output(priority, message);
-        delete[] message;
+        char* message = formatLogPrefix(getTimestamp(), g_priority[priority], buffer, file, line);
+        if (message != nullptr) {
+            output(priority, message);
+            delete[] message;
+        }
     } else {
         output(priority, buffer);
     }
@@ -267,15 +305,13 @@ Log::setFilter(const char* maxPriority)
 void
 Log::setFilter(int maxPriority)
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    m_maxPriority = maxPriority;
+    m_maxPriority.store(maxPriority, std::memory_order_relaxed);
 }
 
 int
 Log::getFilter() const
 {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    return m_maxPriority;
+    return m_maxPriority.load(std::memory_order_relaxed);
 }
 
 void

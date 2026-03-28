@@ -24,6 +24,7 @@
 #include "common/stdlist.h"
 
 #include <stdarg.h>
+#include <atomic>
 #include <mutex>
 
 #define CLOG (Log::getInstance())
@@ -137,7 +138,7 @@ private:
     OutputterList        m_outputters;
     OutputterList        m_alwaysOutputters;
     int                    m_maxNewlineLength;
-    int                    m_maxPriority;
+    std::atomic<int>       m_maxPriority;
 };
 
 /*!
