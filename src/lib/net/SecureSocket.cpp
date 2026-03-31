@@ -59,7 +59,6 @@ SecureSocket::SecureSocket(IEventQueue* events, SocketMultiplexer* socketMultipl
                            IArchNetwork::EAddressFamily family,
                            ConnectionSecurityLevel security_level) :
     TCPSocket(events, socketMultiplexer, family),
-    m_ssl(nullptr),
     m_secureReady(false),
     m_fatal(false),
     security_level_{security_level}
@@ -69,7 +68,6 @@ SecureSocket::SecureSocket(IEventQueue* events, SocketMultiplexer* socketMultipl
 SecureSocket::SecureSocket(IEventQueue* events, SocketMultiplexer* socketMultiplexer,
                            ArchSocket socket, ConnectionSecurityLevel security_level) :
     TCPSocket(events, socketMultiplexer, socket),
-    m_ssl(nullptr),
     m_secureReady(false),
     m_fatal(false),
     security_level_{security_level}
@@ -85,10 +83,23 @@ SecureSocket::~SecureSocket()
     removeJob();
     freeSSLResources();
 
+    // m_ssl is automatically cleaned up by unique_ptr with SslDeleter
     // removing sleep() because I have no idea why you would want to do it
     // ... smells of trying to cover up a bug you don't understand
     //ARCH->sleep(1);
-    delete m_ssl;
+}
+
+void SecureSocket::SslDeleter::operator()(Ssl* ssl)
+{
+    if (ssl) {
+        if (ssl->m_ssl) {
+            SSL_free(ssl->m_ssl);
+        }
+        if (ssl->m_context) {
+            SSL_CTX_free(ssl->m_context);
+        }
+        delete ssl;
+    }
 }
 
 void
@@ -323,7 +334,7 @@ SecureSocket::initSsl(bool server)
 {
     std::lock_guard<std::mutex> ssl_lock{ssl_mutex_};
 
-    m_ssl = new Ssl();
+    m_ssl.reset(new Ssl());
     m_ssl->m_context = NULL;
     m_ssl->m_ssl = NULL;
 

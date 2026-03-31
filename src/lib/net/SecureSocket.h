@@ -21,6 +21,7 @@
 #include "net/TCPSocket.h"
 #include "net/XSocket.h"
 #include "io/filesystem.h"
+#include <memory>
 #include <mutex>
 
 class IEventQueue;
@@ -94,7 +95,11 @@ private:
     // by it.
     std::mutex ssl_mutex_;
 
-    Ssl*                m_ssl;
+    // Custom deleter for Ssl struct
+    struct SslDeleter {
+        void operator()(Ssl* ssl);
+    };
+    std::unique_ptr<Ssl, SslDeleter> m_ssl;
     bool                m_secureReady;
     bool                m_fatal;
     ConnectionSecurityLevel security_level_ = ConnectionSecurityLevel::ENCRYPTED;
