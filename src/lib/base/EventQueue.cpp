@@ -504,6 +504,7 @@ EventQueue::removeEvent(UInt32 eventID)
 bool
 EventQueue::hasTimerExpired(Event& event)
 {
+    // Optimized: O(1) check instead of O(n) loop
     // return true if there's a timer in the timer priority queue that
     // has expired.  if returning true then fill in event appropriately
     // and reset and reinsert the timer.
@@ -515,14 +516,11 @@ EventQueue::hasTimerExpired(Event& event)
     const double time = m_time.getTime();
     m_time.reset();
 
-    // countdown elapsed time
-    for (TimerQueue::iterator index = m_timerQueue.begin();
-                            index != m_timerQueue.end(); ++index) {
-        (*index) -= time;
-    }
+    // Update global base time - O(1) operation
+    Timer::s_baseTime += time;
 
-    // done if no timers are expired
-    if (m_timerQueue.top() > 0.0) {
+    // Check only the top timer - O(1) instead of O(n)
+    if (!m_timerQueue.top().hasExpired(Timer::s_baseTime)) {
         return false;
     }
 
@@ -546,16 +544,18 @@ EventQueue::hasTimerExpired(Event& event)
 double
 EventQueue::getNextTimerTimeout() const
 {
+    // Optimized: Use absolute deadline comparison
     // return -1 if no timers, 0 if the top timer has expired, otherwise
     // the time until the top timer in the timer priority queue will
     // expire.
     if (m_timerQueue.empty()) {
         return -1.0;
     }
-    if (m_timerQueue.top() <= 0.0) {
+    double remaining = m_timerQueue.top().getRemaining(Timer::s_baseTime);
+    if (remaining <= 0.0) {
         return 0.0;
     }
-    return m_timerQueue.top();
+    return remaining;
 }
 
 Event::Type EventQueue::getRegisteredType(const std::string& name) const
@@ -587,6 +587,9 @@ EventQueue::waitForReady() const
     }
 }
 
+// Static member definition
+double EventQueue::Timer::s_baseTime = 0.0;
+
 //
 // EventQueue::Timer
 //
@@ -597,7 +600,7 @@ EventQueue::Timer::Timer(EventQueueTimer* timer, double timeout,
     m_timeout(timeout),
     m_target(target),
     m_oneShot(oneShot),
-    m_time(initialTime)
+    m_deadline(s_baseTime + initialTime)
 {
     assert(m_timeout > 0.0);
 }
@@ -610,19 +613,32 @@ EventQueue::Timer::~Timer()
 void
 EventQueue::Timer::reset()
 {
-    m_time = m_timeout;
+    m_deadline = s_baseTime + m_timeout;
 }
 
+// New optimized interface
+double EventQueue::Timer::getRemaining(double baseTime) const
+{
+    return m_deadline - baseTime;
+}
+
+bool EventQueue::Timer::hasExpired(double baseTime) const
+{
+    return m_deadline <= baseTime;
+}
+
+// Deprecated interface (kept for compatibility)
 EventQueue::Timer&
 EventQueue::Timer::operator-=(double dt)
 {
-    m_time -= dt;
+    // Update base time and recalculate
+    s_baseTime += dt;
     return *this;
 }
 
 EventQueue::Timer::operator double() const
 {
-    return m_time;
+    return m_deadline - s_baseTime;
 }
 
 bool
@@ -648,13 +664,14 @@ EventQueue::Timer::fillEvent(TimerEvent& event) const
 {
     event.m_timer = m_timer;
     event.m_count = 0;
-    if (m_time <= 0.0) {
-        event.m_count = static_cast<UInt32>((m_timeout - m_time) / m_timeout);
+    double remaining = m_deadline - s_baseTime;
+    if (remaining <= 0.0) {
+        event.m_count = static_cast<UInt32>((m_timeout - remaining) / m_timeout);
     }
 }
 
 bool
 EventQueue::Timer::operator<(const Timer& t) const
 {
-    return m_time < t.m_time;
+    return m_deadline < t.m_deadline;
 }

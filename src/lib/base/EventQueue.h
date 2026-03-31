@@ -75,6 +75,8 @@ private:
     bool                parent_requests_shutdown() const;
 
 private:
+    // Optimized Timer class using absolute deadlines instead of relative time
+    // This eliminates the O(n) loop in hasTimerExpired()
     class Timer {
     public:
         Timer(EventQueueTimer*, double timeout, double initialTime,
@@ -82,9 +84,15 @@ private:
         ~Timer();
 
         void            reset();
+        
+        // New: Get remaining time relative to a base time
+        double            getRemaining(double baseTime) const;
+        
+        // New: Check if timer has expired relative to a base time
+        bool            hasExpired(double baseTime) const;
 
+        // Deprecated: Old relative time interface
         Timer&            operator-=(double);
-
                         operator double() const;
 
         bool            isOneShot() const;
@@ -97,20 +105,29 @@ private:
 
     private:
         EventQueueTimer*    m_timer;
-        double                m_timeout;
+        double                m_timeout;      // Original timeout duration
         void*                m_target;
         bool                m_oneShot;
-        double                m_time;
+        double                m_deadline;     // Absolute deadline (replaces m_time)
+        static double       s_baseTime;     // Global time base for all timers
     };
 
     typedef std::set<EventQueueTimer*> Timers;
     typedef PriorityQueue<Timer> TimerQueue;
     typedef std::vector<Event> EventTable;
     typedef std::vector<UInt32> EventIDList;
-    typedef std::map<Event::Type, const char*> TypeMap;
-    typedef std::map<std::string, Event::Type> NameMap;
-    typedef std::map<Event::Type, IEventJob*> TypeHandlerTable;
-    typedef std::map<void*, TypeHandlerTable> HandlerTable;
+    // Use unordered_map for O(1) lookup instead of std::map's O(log n)
+    typedef std::unordered_map<Event::Type, const char*> TypeMap;
+    typedef std::unordered_map<std::string, Event::Type> NameMap;
+    typedef std::unordered_map<Event::Type, IEventJob*> TypeHandlerTable;
+    
+    // Custom hash for void* pointers
+    struct PtrHash {
+        size_t operator()(const void* ptr) const {
+            return std::hash<uintptr_t>()(reinterpret_cast<uintptr_t>(ptr));
+        }
+    };
+    typedef std::unordered_map<void*, TypeHandlerTable, PtrHash> HandlerTable;
 
     int                    m_systemTarget;
     mutable std::mutex m_mutex;

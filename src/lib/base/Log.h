@@ -194,6 +194,19 @@ otherwise it expands to a call that doesn't.
 #define CLOG_TRACE        __FILE__, __LINE__,
 #endif
 
+// Optimized logging macros that check level before evaluating arguments
+// Usage: LOG_DEBUG(("message %d", value));
+#define LOG_LEVEL_CHECK(priority) (CLOG->getFilter() >= priority)
+
+// Debug level shortcuts - these check the level first to avoid formatting overhead
+#define LOG_PRINT(args) do { if (LOG_LEVEL_CHECK(kPRINT)) LOG((CLOG_PRINT args)); } while(0)
+#define LOG_CRIT(args)  do { if (LOG_LEVEL_CHECK(kCRIT))  LOG((CLOG_CRIT args)); } while(0)
+#define LOG_ERR(args)   do { if (LOG_LEVEL_CHECK(kERROR)) LOG((CLOG_ERR args)); } while(0)
+#define LOG_WARN(args)  do { if (LOG_LEVEL_CHECK(kWARNING)) LOG((CLOG_WARN args)); } while(0)
+#define LOG_NOTE(args)  do { if (LOG_LEVEL_CHECK(kNOTE)) LOG((CLOG_NOTE args)); } while(0)
+#define LOG_INFO(args)  do { if (LOG_LEVEL_CHECK(kINFO)) LOG((CLOG_INFO args)); } while(0)
+#define LOG_DEBUG(args) do { if (LOG_LEVEL_CHECK(kDEBUG)) LOG((CLOG_DEBUG args)); } while(0)
+
 // the CLOG_* defines are line and file plus %z and an octal number (060=0,
 // 071=9), but the limitation is that once we run out of numbers at either
 // end, then we resort to using non-numerical chars. this still works (since
