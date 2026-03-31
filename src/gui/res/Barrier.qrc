@@ -58,5 +58,6 @@
         <file>icons/32x32/barrier-disconnected-mask.png</file>
         <file>icons/32x32/barrier-transfering-mask.png</file>
         <file>style/modern.qss</file>
+        <file>style/dark.qss</file>
     </qresource>
 </RCC>
