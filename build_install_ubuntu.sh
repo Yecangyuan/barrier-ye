@@ -41,6 +41,7 @@ Options:
   --release            Build with Release configuration (default)
   --build-dir <path>   Override the build directory
   --prefix <path>      Install prefix, default: /usr/local
+  --jobs <n>           Number of parallel build jobs (default: auto-detect)
   --install-deps       Install Ubuntu build dependencies with apt
   --with-tests         Build test targets
   --no-install         Build only, skip cmake --install
@@ -144,6 +145,11 @@ while [ $# -gt 0 ]; do
             shift
             [ $# -gt 0 ] || { printf "Missing value for --prefix\n" >&2; exit 1; }
             INSTALL_PREFIX="$1"
+            ;;
+        --jobs)
+            shift
+            [ $# -gt 0 ] || { printf "Missing value for --jobs\n" >&2; exit 1; }
+            BUILD_JOBS="$1"
             ;;
         --install-deps)
             INSTALL_DEPS=1

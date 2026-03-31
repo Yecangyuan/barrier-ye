@@ -138,6 +138,11 @@ while [ $# -gt 0 ]; do
             [ $# -gt 0 ] || { printf "Missing value for --build-dir\n" >&2; exit 1; }
             BUILD_DIR="$1"
             ;;
+        --jobs)
+            shift
+            [ $# -gt 0 ] || { printf "Missing value for --jobs\n" >&2; exit 1; }
+            BUILD_JOBS="$1"
+            ;;
         --install-dir)
             shift
             [ $# -gt 0 ] || { printf "Missing value for --install-dir\n" >&2; exit 1; }
