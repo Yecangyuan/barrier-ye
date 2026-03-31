@@ -46,6 +46,7 @@
 #include <QFileDialog>
 #include <QDesktopServices>
 #include <QDesktopWidget>
+#include <QFile>
 
 #if defined(Q_OS_MAC)
 #include <ApplicationServices/ApplicationServices.h>
@@ -128,6 +129,15 @@ MainWindow::MainWindow(QSettings& settings, AppConfig& appConfig) :
     setAttribute(Qt::WA_X11NetWmWindowTypeDialog, true);
 
     setupUi(this);
+    
+    // Load modern stylesheet
+    QFile styleFile(":/res/style/modern.qss");
+    if (styleFile.open(QFile::ReadOnly)) {
+        QString style = QLatin1String(styleFile.readAll());
+        setStyleSheet(style);
+        styleFile.close();
+    }
+    
     setWindowIcon(QIcon(barrierLargeIcon));
     createMenuBar();
     loadSettings();
