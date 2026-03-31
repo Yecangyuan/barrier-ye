@@ -130,13 +130,8 @@ MainWindow::MainWindow(QSettings& settings, AppConfig& appConfig) :
 
     setupUi(this);
     
-    // Load modern stylesheet
-    QFile styleFile(":/res/style/modern.qss");
-    if (styleFile.open(QFile::ReadOnly)) {
-        QString style = QLatin1String(styleFile.readAll());
-        setStyleSheet(style);
-        styleFile.close();
-    }
+    // Load stylesheet based on theme setting
+    loadTheme();
     
     setWindowIcon(QIcon(barrierLargeIcon));
     createMenuBar();
@@ -232,6 +227,23 @@ void MainWindow::open()
         m_SuppressEmptyServerWarning = true;
         startBarrier();
         m_SuppressEmptyServerWarning = false;
+    }
+}
+
+void MainWindow::loadTheme()
+{
+    // Theme can be "light" (default) or "dark"
+    QString theme = settings().value("theme", "light").toString();
+    QString stylePath = (theme == "dark") ? ":/res/style/dark.qss" : ":/res/style/modern.qss";
+    
+    QFile styleFile(stylePath);
+    if (styleFile.open(QFile::ReadOnly)) {
+        QString style = QLatin1String(styleFile.readAll());
+        setStyleSheet(style);
+        styleFile.close();
+        qDebug() << "Loaded theme:" << theme;
+    } else {
+        qWarning() << "Failed to load theme:" << stylePath;
     }
 }
 

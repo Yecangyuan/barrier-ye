@@ -169,6 +169,7 @@ public slots:
         void proofreadInfo();
         void windowStateChanged();
         void updateSSLFingerprint();
+        void loadTheme();
 
     private:
         QSettings& m_Settings;

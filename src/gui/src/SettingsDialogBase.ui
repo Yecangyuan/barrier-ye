@@ -57,7 +57,31 @@
       <item row="0" column="1">
        <widget class="QComboBox" name="m_pComboLanguage"/>
       </item>
-      <item row="1" column="0">
+      <item row="0" column="2">
+       <widget class="QLabel" name="m_pLabelTheme">
+        <property name="text">
+         <string>&amp;Theme:</string>
+        </property>
+        <property name="buddy">
+         <cstring>m_pComboTheme</cstring>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="3">
+       <widget class="QComboBox" name="m_pComboTheme">
+        <item>
+         <property name="text">
+          <string>Light</string>
+         </property>
+        </item>
+        <item>
+         <property name="text">
+          <string>Dark</string>
+         </property>
+        </item>
+       </widget>
+      </item>
+      <item row="1" column="0" colspan="2">
        <widget class="QLabel" name="m_pLabel_19">
         <property name="minimumSize">
          <size>
@@ -73,21 +97,21 @@
         </property>
        </widget>
       </item>
-      <item row="1" column="1">
+      <item row="1" column="2" colspan="2">
        <widget class="QLineEdit" name="m_pLineEditScreenName">
         <property name="enabled">
          <bool>true</bool>
         </property>
        </widget>
       </item>
-      <item row="2" column="0">
+      <item row="2" column="0" colspan="2">
        <widget class="QLabel" name="m_pLabelElevate">
         <property name="text">
          <string>Elevate</string>
         </property>
        </widget>
       </item>
-      <item row="2" column="1">
+      <item row="2" column="2" colspan="2">
        <widget class="QComboBox" name="m_pComboElevate">
         <property name="toolTip">
          <string>Specify when the Barrier service should run at an elevated privilege level</string>
@@ -112,21 +136,21 @@
         </item>
        </widget>
       </item>
-      <item row="3" column="0">
+      <item row="3" column="0" colspan="2">
        <widget class="QCheckBox" name="m_pCheckBoxMinimizeToTray">
         <property name="text">
          <string>Minimize to System &amp;Tray</string>
         </property>
        </widget>
       </item>
-      <item row="4" column="0">
+      <item row="4" column="0" colspan="2">
        <widget class="QCheckBox" name="m_pCheckBoxAutoHide">
         <property name="text">
          <string>&amp;Hide on startup</string>
         </property>
        </widget>
       </item>
-      <item row="5" column="0">
+      <item row="5" column="0" colspan="2">
        <widget class="QCheckBox" name="m_pCheckBoxAutoStart">
         <property name="text">
          <string>Start &amp;Barrier on startup</string>
