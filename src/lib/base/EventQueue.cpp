@@ -214,63 +214,65 @@ bool
 EventQueue::getEvent(Event& event, double timeout)
 {
     Stopwatch timer(true);
-retry:
-    // before handling any events make sure we don't need to shutdown
-    if (parent_requests_shutdown()) {
-        event = Event(Event::kQuit);
-        return false;
-    }
-    // if no events are waiting then handle timers and then wait
-    while (m_buffer->isEmpty()) {
-        // handle timers first
-        if (hasTimerExpired(event)) {
-            return true;
-        }
 
-        // get time remaining in timeout
-        double timeLeft = timeout - timer.getTime();
-        if (timeout >= 0.0 && timeLeft <= 0.0) {
+    while (true) {
+        // before handling any events make sure we don't need to shutdown
+        if (parent_requests_shutdown()) {
+            event = Event(Event::kQuit);
             return false;
         }
+        // if no events are waiting then handle timers and then wait
+        while (m_buffer->isEmpty()) {
+            // handle timers first
+            if (hasTimerExpired(event)) {
+                return true;
+            }
 
-        // get time until next timer expires.  if there is a timer
-        // and it'll expire before the client's timeout then use
-        // that duration for our timeout instead.
-        double timerTimeout = getNextTimerTimeout();
-        if (timeout < 0.0 || (timerTimeout >= 0.0 && timerTimeout < timeLeft)) {
-            timeLeft = timerTimeout;
+            // get time remaining in timeout
+            double timeLeft = timeout - timer.getTime();
+            if (timeout >= 0.0 && timeLeft <= 0.0) {
+                return false;
+            }
+
+            // get time until next timer expires.  if there is a timer
+            // and it'll expire before the client's timeout then use
+            // that duration for our timeout instead.
+            double timerTimeout = getNextTimerTimeout();
+            if (timeout < 0.0 || (timerTimeout >= 0.0 && timerTimeout < timeLeft)) {
+                timeLeft = timerTimeout;
+            }
+
+            // wait for an event
+            m_buffer->waitForEvent(timeLeft);
         }
 
-        // wait for an event
-        m_buffer->waitForEvent(timeLeft);
-    }
+        // get the event
+        UInt32 dataID;
+        IEventQueueBuffer::Type type = m_buffer->getEvent(event, dataID);
+        switch (type) {
+        case IEventQueueBuffer::kNone:
+            if (timeout < 0.0 || timeout <= timer.getTime()) {
+                // don't want to fail if client isn't expecting that
+                // so if getEvent() fails with an infinite timeout
+                // then just try getting another event.
+                continue;
+            }
+            return false;
 
-    // get the event
-    UInt32 dataID;
-    IEventQueueBuffer::Type type = m_buffer->getEvent(event, dataID);
-    switch (type) {
-    case IEventQueueBuffer::kNone:
-        if (timeout < 0.0 || timeout <= timer.getTime()) {
-            // don't want to fail if client isn't expecting that
-            // so if getEvent() fails with an infinite timeout
-            // then just try getting another event.
-            goto retry;
-        }
-        return false;
-
-    case IEventQueueBuffer::kSystem:
-        return true;
-
-    case IEventQueueBuffer::kUser:
-        {
-            std::lock_guard<std::mutex> lock(m_mutex);
-            event = removeEvent(dataID);
+        case IEventQueueBuffer::kSystem:
             return true;
-        }
 
-    default:
-        assert(0 && "invalid event type");
-        return false;
+        case IEventQueueBuffer::kUser:
+            {
+                std::lock_guard<std::mutex> lock(m_mutex);
+                event = removeEvent(dataID);
+                return true;
+            }
+
+        default:
+            assert(0 && "invalid event type");
+            return false;
+        }
     }
 }
 
