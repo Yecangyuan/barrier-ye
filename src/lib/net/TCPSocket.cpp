@@ -28,6 +28,7 @@
 #include "base/Log.h"
 #include "base/IEventQueue.h"
 #include "base/IEventJob.h"
+#include "base/PerfMonitor.h"
 
 #include <cstring>
 #include <cstdlib>
@@ -335,6 +336,7 @@ TCPSocket::init()
 TCPSocket::EJobResult
 TCPSocket::doRead()
 {
+    PERF_TIMER("TCPSocket::doRead");
     UInt8 buffer[4096];
     memset(buffer, 0, sizeof(buffer));
     size_t bytesRead = 0;
@@ -379,6 +381,7 @@ TCPSocket::doRead()
 TCPSocket::EJobResult
 TCPSocket::doWrite()
 {
+    PERF_TIMER("TCPSocket::doWrite");
     // write data
     UInt32 bufferSize = 0;
     int bytesWrote = 0;

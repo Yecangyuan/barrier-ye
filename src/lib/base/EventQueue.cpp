@@ -27,6 +27,7 @@
 #include "base/EventTypes.h"
 #include "base/Log.h"
 #include "base/XBase.h"
+#include "base/PerfMonitor.h"
 #include "../gui/src/ShutdownCh.h"
 
 EVENT_TYPE_ACCESSOR(Client)
@@ -279,6 +280,7 @@ EventQueue::getEvent(Event& event, double timeout)
 bool
 EventQueue::dispatchEvent(const Event& event)
 {
+    PERF_TIMER("EventQueue::dispatchEvent");
     void* target   = event.getTarget();
     IEventJob* job = getHandler(event.getType(), target);
     if (job == NULL) {
@@ -294,6 +296,9 @@ EventQueue::dispatchEvent(const Event& event)
 void
 EventQueue::addEvent(const Event& event)
 {
+    PERF_TIMER("EventQueue::addEvent");
+    PERF_RECORD_COUNT("EventQueue::addEvent_count");
+    
     // discard bogus event types
     switch (event.getType()) {
     case Event::kUnknown:
