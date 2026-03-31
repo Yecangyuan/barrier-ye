@@ -92,13 +92,12 @@ EventQueue::EventQueue() :
 {
     ARCH->setSignalHandler(Arch::kINTERRUPT, &interrupt, this);
     ARCH->setSignalHandler(Arch::kTERMINATE, &interrupt, this);
-    m_buffer = new SimpleEventQueueBuffer;
+    m_buffer = std::make_unique<SimpleEventQueueBuffer>();
 }
 
 EventQueue::~EventQueue()
 {
-    delete m_buffer;
-    // m_readyCondVar and m_readyMutex are automatically cleaned up by unique_ptr
+    // m_buffer, m_readyCondVar and m_readyMutex are automatically cleaned up by unique_ptr
 
     ARCH->setSignalHandler(Arch::kINTERRUPT, NULL, NULL);
     ARCH->setSignalHandler(Arch::kTERMINATE, NULL, NULL);
@@ -186,7 +185,7 @@ EventQueue::adoptBuffer(IEventQueueBuffer* buffer)
     }
 
     // discard old buffer and old events
-    delete m_buffer;
+    // old buffer is automatically cleaned up by unique_ptr reset
     for (EventTable::iterator i = m_events.begin(); i != m_events.end(); ++i) {
         if (i->getType() != Event::kUnknown) {
             Event::deleteData(*i);
@@ -196,9 +195,11 @@ EventQueue::adoptBuffer(IEventQueueBuffer* buffer)
     m_oldEventIDs.clear();
 
     // use new buffer
-    m_buffer = buffer;
-    if (m_buffer == NULL) {
-        m_buffer = new SimpleEventQueueBuffer;
+    if (buffer != NULL) {
+        m_buffer.reset(buffer);
+    }
+    else {
+        m_buffer = std::make_unique<SimpleEventQueueBuffer>();
     }
 }
 

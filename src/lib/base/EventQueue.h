@@ -121,7 +121,7 @@ private:
     NameMap            m_nameMap;
 
     // buffer of events
-    IEventQueueBuffer*    m_buffer;
+    std::unique_ptr<IEventQueueBuffer> m_buffer;
 
     // saved events
     EventTable            m_events;
