@@ -112,7 +112,7 @@ Client::~Client()
     cleanupScreen();
     cleanupConnecting();
     cleanupConnection();
-    delete m_socketFactory;
+    // m_socketFactory is automatically cleaned up by unique_ptr
 }
 
 void

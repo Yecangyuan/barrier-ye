@@ -21,6 +21,7 @@
 #include "barrier/IClient.h"
 
 #include "barrier/Clipboard.h"
+#include <memory>
 #include "barrier/DragInformation.h"
 #include "barrier/INode.h"
 #include "barrier/ClientArgs.h"
@@ -200,7 +201,7 @@ public:
 private:
     std::string                m_name;
     NetworkAddress        m_serverAddress;
-    ISocketFactory*        m_socketFactory;
+    std::unique_ptr<ISocketFactory> m_socketFactory;
     barrier::Screen*    m_screen;
     barrier::IStream*    m_stream;
     EventQueueTimer*    m_timer;
