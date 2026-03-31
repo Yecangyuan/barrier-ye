@@ -29,6 +29,7 @@
 #include "common/stdvector.h"
 #include "base/NonBlockingStream.h"
 
+#include <memory>
 #include <mutex>
 #include <queue>
 
@@ -181,8 +182,8 @@ private:
     IScreenEvents*                m_typesForIScreen;
     ClipboardEvents*            m_typesForClipboard;
     FileEvents*                    m_typesForFile;
-    Mutex*                        m_readyMutex;
-    CondVar<bool>*                m_readyCondVar;
+    std::unique_ptr<Mutex>        m_readyMutex;
+    std::unique_ptr<CondVar<bool>> m_readyCondVar;
     std::queue<Event>            m_pending;
     NonBlockingStream            m_parentStream;
 };

@@ -87,8 +87,8 @@ EventQueue::EventQueue() :
     m_typesForIScreen(NULL),
     m_typesForClipboard(NULL),
     m_typesForFile(NULL),
-    m_readyMutex(new Mutex),
-    m_readyCondVar(new CondVar<bool>(m_readyMutex, false))
+    m_readyMutex(std::make_unique<Mutex>()),
+    m_readyCondVar(std::make_unique<CondVar<bool>>(m_readyMutex.get(), false))
 {
     ARCH->setSignalHandler(Arch::kINTERRUPT, &interrupt, this);
     ARCH->setSignalHandler(Arch::kTERMINATE, &interrupt, this);
@@ -98,8 +98,7 @@ EventQueue::EventQueue() :
 EventQueue::~EventQueue()
 {
     delete m_buffer;
-    delete m_readyCondVar;
-    delete m_readyMutex;
+    // m_readyCondVar and m_readyMutex are automatically cleaned up by unique_ptr
 
     ARCH->setSignalHandler(Arch::kINTERRUPT, NULL, NULL);
     ARCH->setSignalHandler(Arch::kTERMINATE, NULL, NULL);
@@ -110,7 +109,7 @@ EventQueue::loop()
 {
     m_buffer->init();
     {
-        Lock lock(m_readyMutex);
+        Lock lock(m_readyMutex.get());
         *m_readyCondVar = true;
         m_readyCondVar->signal();
     }
@@ -573,7 +572,7 @@ void
 EventQueue::waitForReady() const
 {
     double timeout = ARCH->time() + 10;
-    Lock lock(m_readyMutex);
+    Lock lock(m_readyMutex.get());
 
     while (!m_readyCondVar->wait()) {
         if (ARCH->time() > timeout) {
