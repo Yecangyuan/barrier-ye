@@ -80,6 +80,7 @@ public:
     virtual void        throwErrorOnSocket(ArchSocket);
     virtual bool        setNoDelayOnSocket(ArchSocket, bool noDelay);
     virtual bool        setReuseAddrOnSocket(ArchSocket, bool reuse);
+    virtual bool        setSocketBufferSizes(ArchSocket, int sendSize, int recvSize);
     virtual std::string        getHostName();
     virtual ArchNetAddress    newAnyAddr(EAddressFamily);
     virtual ArchNetAddress    copyAddr(ArchNetAddress);

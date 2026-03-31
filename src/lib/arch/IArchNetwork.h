@@ -237,6 +237,14 @@ public:
     */
     virtual bool        setReuseAddrOnSocket(ArchSocket, bool reuse) = 0;
 
+    //! Set socket send and receive buffer sizes
+    /*!
+    Sets the socket send and receive buffer sizes in bytes.
+    Larger buffers can improve throughput and reduce latency jitter.
+    Returns true on success.
+    */
+    virtual bool        setSocketBufferSizes(ArchSocket, int sendSize, int recvSize) = 0;
+
     //! Return local host's name
     virtual std::string        getHostName() = 0;
 

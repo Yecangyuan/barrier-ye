@@ -314,6 +314,11 @@ TCPSocket::init()
         // that should be sent without (much) delay.  for example, the
         // mouse motion messages are much less useful if they're delayed.
         ARCH->setNoDelayOnSocket(m_socket, true);
+        
+        // set larger socket buffer sizes to reduce latency jitter
+        // 256KB buffers provide good balance between memory usage and performance
+        const int SOCKET_BUFFER_SIZE = 256 * 1024;
+        ARCH->setSocketBufferSizes(m_socket, SOCKET_BUFFER_SIZE, SOCKET_BUFFER_SIZE);
     }
     catch (XArchNetwork& e) {
         try {

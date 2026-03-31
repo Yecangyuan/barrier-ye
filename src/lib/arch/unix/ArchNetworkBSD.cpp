@@ -629,6 +629,28 @@ ArchNetworkBSD::setReuseAddrOnSocket(ArchSocket s, bool reuse)
     return (oflag != 0);
 }
 
+bool
+ArchNetworkBSD::setSocketBufferSizes(ArchSocket s, int sendSize, int recvSize)
+{
+    bool result = true;
+    
+    if (sendSize > 0) {
+        if (setsockopt(s->m_fd, SOL_SOCKET, SO_SNDBUF,
+                       (optval_t*)&sendSize, sizeof(sendSize)) == -1) {
+            result = false;
+        }
+    }
+    
+    if (recvSize > 0) {
+        if (setsockopt(s->m_fd, SOL_SOCKET, SO_RCVBUF,
+                       (optval_t*)&recvSize, sizeof(recvSize)) == -1) {
+            result = false;
+        }
+    }
+    
+    return result;
+}
+
 std::string
 ArchNetworkBSD::getHostName()
 {

@@ -664,6 +664,28 @@ ArchNetworkWinsock::setReuseAddrOnSocket(ArchSocket s, bool reuse)
     return (oflag != 0);
 }
 
+bool
+ArchNetworkWinsock::setSocketBufferSizes(ArchSocket s, int sendSize, int recvSize)
+{
+    bool result = true;
+    
+    if (sendSize > 0) {
+        if (setsockopt_winsock(s->m_socket, SOL_SOCKET, SO_SNDBUF,
+                               (const char*)&sendSize, sizeof(sendSize)) == SOCKET_ERROR) {
+            result = false;
+        }
+    }
+    
+    if (recvSize > 0) {
+        if (setsockopt_winsock(s->m_socket, SOL_SOCKET, SO_RCVBUF,
+                               (const char*)&recvSize, sizeof(recvSize)) == SOCKET_ERROR) {
+            result = false;
+        }
+    }
+    
+    return result;
+}
+
 std::string
 ArchNetworkWinsock::getHostName()
 {
