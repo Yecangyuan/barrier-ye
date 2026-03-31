@@ -42,12 +42,6 @@ endif()
 include (cmake/Version.cmake)
 include (cmake/Package.cmake)
 
-# TODO: Find out why we need these, and remove them
-if (COMMAND cmake_policy)
-    cmake_policy (SET CMP0003 NEW)
-    cmake_policy (SET CMP0005 NEW)
-endif()
-
 # Add headers to source list
 if (${CMAKE_GENERATOR} STREQUAL "Unix Makefiles")
     set (BARRIER_ADD_HEADERS FALSE)
