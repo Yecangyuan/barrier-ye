@@ -109,6 +109,7 @@ private:
         void*                m_target;
         bool                m_oneShot;
         double                m_deadline;     // Absolute deadline (replaces m_time)
+    public:
         static double       s_baseTime;     // Global time base for all timers
     };
 
