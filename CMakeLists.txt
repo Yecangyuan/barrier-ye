@@ -60,7 +60,13 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
     
     # Remove unused code
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
-    set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+    if (NOT APPLE)
+        # GNU ld option to remove unused sections (not supported on macOS)
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
+    else()
+        # macOS equivalent for dead code removal
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-dead_strip")
+    endif()
 endif()
 
 if (MSVC)
