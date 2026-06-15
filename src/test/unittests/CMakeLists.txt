@@ -14,39 +14,63 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-file(GLOB_RECURSE headers "*.h")
-file(GLOB_RECURSE sources "*.cpp")
+set(headers
+    ../../test/global/TestEventQueue.h
+    ../../test/global/TestUtils.h
+    ../../test/global/gmock.h
+    ../../test/global/gtest.h
+    ../../test/mock/barrier/MockApp.h
+    ../../test/mock/barrier/MockArgParser.h
+    ../../test/mock/barrier/MockEventQueue.h
+    ../../test/mock/barrier/MockKeyMap.h
+    ../../test/mock/barrier/MockKeyState.h
+    ../../test/mock/barrier/MockScreen.h
+    ../../test/mock/io/MockStream.h
+    ../../test/mock/ipc/MockIpcServer.h
+    ../../test/mock/server/MockConfig.h
+    ../../test/mock/server/MockInputFilter.h
+    ../../test/mock/server/MockPrimaryClient.h
+    ../../test/mock/server/MockServer.h
+)
 
-file(GLOB_RECURSE remove_platform "platform/*")
-list(REMOVE_ITEM headers ${remove_platform})
-list(REMOVE_ITEM sources ${remove_platform})
-
-file(GLOB_RECURSE global_headers "../../test/global/*.h")
-file(GLOB_RECURSE global_sources "../../test/global/*.cpp")
-
-list(APPEND headers ${global_headers})
-list(APPEND sources ${global_sources})
-
-file(GLOB_RECURSE mock_headers "../../test/mock/*.h")
-file(GLOB_RECURSE mock_sources "../../test/mock/*.cpp")
-
-list(APPEND headers ${mock_headers})
-list(APPEND sources ${mock_sources})
+set(sources
+    Main.cpp
+    barrier/ArgParserTests.cpp
+    barrier/ClientArgsParsingTests.cpp
+    barrier/ClipboardChunkTests.cpp
+    barrier/ClipboardTests.cpp
+    barrier/DeprecatedArgsParsingTests.cpp
+    barrier/GenericArgsParsingTests.cpp
+    barrier/KeyMapTests.cpp
+    barrier/KeyStateTests.cpp
+    barrier/ServerArgsParsingTests.cpp
+    base/EventQueueTests.cpp
+    base/PerfMonitorTests.cpp
+    base/StringTests.cpp
+    ipc/IpcLogOutputterTests.cpp
+    net/FingerprintDatabaseTests.cpp
+    net/SecureSocketTests.cpp
+    net/SecureUtilsTests.cpp
+    ../../test/global/TestEventQueue.cpp
+    ../../test/global/TestUtils.cpp
+)
 
 # platform
 if (WIN32)
     file(GLOB platform_sources "platform/MSWindows*.cpp")
     file(GLOB platform_headers "platform/MSWindows*.h")
 elseif (APPLE)
-    file(GLOB platform_sources "platform/OSX*.cpp")
-    file(GLOB platform_headers "platform/OSX*.h")
+    set(platform_sources
+        platform/OSXKeyStateTests.cpp
+    )
+    set(platform_headers)
 elseif (UNIX)
-    file(GLOB platform_sources "platform/XWindows*.cpp")
-    file(GLOB platform_headers "platform/XWindows*.h")
+    set(platform_sources)
+    set(platform_headers)
 endif()
 
-list(APPEND sources ${platform_headers})
-list(APPEND headers ${platform_sources})
+list(APPEND sources ${platform_sources})
+list(APPEND headers ${platform_headers})
 
 include_directories(
     ../../
@@ -66,3 +90,5 @@ endif()
 add_executable(unittests ${sources})
 target_link_libraries(unittests
     arch base client server common io net platform server synlib mt ipc ${GTEST_LIBRARIES} ${GMOCK_LIBRARIES} ${libs} ${OPENSSL_LIBS})
+
+add_test(NAME unittests COMMAND unittests)

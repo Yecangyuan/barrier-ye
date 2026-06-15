@@ -28,7 +28,7 @@
 #include "base/Log.h"
 #include "base/XBase.h"
 #include "base/PerfMonitor.h"
-#include "../gui/src/ShutdownCh.h"
+#include "common/ShutdownCh.h"
 
 EVENT_TYPE_ACCESSOR(Client)
 EVENT_TYPE_ACCESSOR(IStream)
@@ -88,6 +88,8 @@ EventQueue::EventQueue() :
     m_typesForIScreen(NULL),
     m_typesForClipboard(NULL),
     m_typesForFile(NULL),
+    m_timerBaseTime(0.0),
+    m_nextTimerGeneration(1),
     m_readyMutex(std::make_unique<Mutex>()),
     m_readyCondVar(std::make_unique<CondVar<bool>>(m_readyMutex.get(), false))
 {
@@ -349,11 +351,11 @@ EventQueue::newTimer(double duration, void* target)
     }
     std::lock_guard<std::mutex> lock(m_mutex);
     m_timers.insert(timer);
-    // initial duration is requested duration plus whatever's on
-    // the clock currently because the latter will be subtracted
-    // the next time we check for timers.
+    const std::uint64_t generation = m_nextTimerGeneration++;
+    m_timerGenerations[timer] = generation;
     m_timerQueue.push(Timer(timer, duration,
-                            duration + m_time.getTime(), target, false));
+                            m_timerBaseTime + m_time.getTime() + duration,
+                            generation, target, false));
     return timer;
 }
 
@@ -368,11 +370,11 @@ EventQueue::newOneShotTimer(double duration, void* target)
     }
     std::lock_guard<std::mutex> lock(m_mutex);
     m_timers.insert(timer);
-    // initial duration is requested duration plus whatever's on
-    // the clock currently because the latter will be subtracted
-    // the next time we check for timers.
+    const std::uint64_t generation = m_nextTimerGeneration++;
+    m_timerGenerations[timer] = generation;
     m_timerQueue.push(Timer(timer, duration,
-                            duration + m_time.getTime(), target, true));
+                            m_timerBaseTime + m_time.getTime() + duration,
+                            generation, target, true));
     return timer;
 }
 
@@ -380,17 +382,11 @@ void
 EventQueue::deleteTimer(EventQueueTimer* timer)
 {
     std::lock_guard<std::mutex> lock(m_mutex);
-    for (TimerQueue::iterator index = m_timerQueue.begin();
-                            index != m_timerQueue.end(); ++index) {
-        if (index->getTimer() == timer) {
-            m_timerQueue.erase(index);
-            break;
-        }
-    }
     Timers::iterator index = m_timers.find(timer);
     if (index != m_timers.end()) {
         m_timers.erase(index);
     }
+    m_timerGenerations.erase(timer);
     m_buffer->deleteTimer(timer);
 }
 
@@ -504,23 +500,27 @@ EventQueue::removeEvent(UInt32 eventID)
 bool
 EventQueue::hasTimerExpired(Event& event)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     // Optimized: O(1) check instead of O(n) loop
     // return true if there's a timer in the timer priority queue that
     // has expired.  if returning true then fill in event appropriately
     // and reset and reinsert the timer.
-    if (m_timerQueue.empty()) {
-        return false;
-    }
-
     // get time elapsed since last check
     const double time = m_time.getTime();
     m_time.reset();
 
-    // Update global base time - O(1) operation
-    Timer::s_baseTime += time;
+    // Update this queue's base time - O(1) operation
+    m_timerBaseTime += time;
+
+    discardInactiveTimers();
+
+    if (m_timerQueue.empty()) {
+        return false;
+    }
 
     // Check only the top timer - O(1) instead of O(n)
-    if (!m_timerQueue.top().hasExpired(Timer::s_baseTime)) {
+    if (!m_timerQueue.top().hasExpired(m_timerBaseTime)) {
         return false;
     }
 
@@ -529,9 +529,9 @@ EventQueue::hasTimerExpired(Event& event)
     m_timerQueue.pop();
 
     // prepare event and reset the timer's clock
-    timer.fillEvent(m_timerEvent);
+    timer.fillEvent(m_timerEvent, m_timerBaseTime);
     event = Event(Event::kTimer, timer.getTarget(), &m_timerEvent);
-    timer.reset();
+    timer.reset(m_timerBaseTime);
 
     // reinsert timer into queue if it's not a one-shot
     if (!timer.isOneShot()) {
@@ -542,20 +542,41 @@ EventQueue::hasTimerExpired(Event& event)
 }
 
 double
-EventQueue::getNextTimerTimeout() const
+EventQueue::getNextTimerTimeout()
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
+
     // Optimized: Use absolute deadline comparison
     // return -1 if no timers, 0 if the top timer has expired, otherwise
     // the time until the top timer in the timer priority queue will
     // expire.
+    discardInactiveTimers();
+
     if (m_timerQueue.empty()) {
         return -1.0;
     }
-    double remaining = m_timerQueue.top().getRemaining(Timer::s_baseTime);
+    double remaining = m_timerQueue.top().getRemaining(m_timerBaseTime);
     if (remaining <= 0.0) {
         return 0.0;
     }
     return remaining;
+}
+
+void
+EventQueue::discardInactiveTimers()
+{
+    while (!m_timerQueue.empty() && !isTimerActive(m_timerQueue.top())) {
+        m_timerQueue.pop();
+    }
+}
+
+bool
+EventQueue::isTimerActive(const Timer& timer) const
+{
+    TimerGenerationTable::const_iterator index =
+        m_timerGenerations.find(timer.getTimer());
+    return index != m_timerGenerations.end() &&
+        index->second == timer.getGeneration();
 }
 
 Event::Type EventQueue::getRegisteredType(const std::string& name) const
@@ -587,20 +608,19 @@ EventQueue::waitForReady() const
     }
 }
 
-// Static member definition
-double EventQueue::Timer::s_baseTime = 0.0;
-
 //
 // EventQueue::Timer
 //
 
 EventQueue::Timer::Timer(EventQueueTimer* timer, double timeout,
-                double initialTime, void* target, bool oneShot) :
+                double deadline, std::uint64_t generation,
+                void* target, bool oneShot) :
     m_timer(timer),
     m_timeout(timeout),
     m_target(target),
     m_oneShot(oneShot),
-    m_deadline(s_baseTime + initialTime)
+    m_deadline(deadline),
+    m_generation(generation)
 {
     assert(m_timeout > 0.0);
 }
@@ -611,9 +631,9 @@ EventQueue::Timer::~Timer()
 }
 
 void
-EventQueue::Timer::reset()
+EventQueue::Timer::reset(double baseTime)
 {
-    m_deadline = s_baseTime + m_timeout;
+    m_deadline = baseTime + m_timeout;
 }
 
 // New optimized interface
@@ -631,14 +651,13 @@ bool EventQueue::Timer::hasExpired(double baseTime) const
 EventQueue::Timer&
 EventQueue::Timer::operator-=(double dt)
 {
-    // Update base time and recalculate
-    s_baseTime += dt;
+    m_deadline -= dt;
     return *this;
 }
 
 EventQueue::Timer::operator double() const
 {
-    return m_deadline - s_baseTime;
+    return m_deadline;
 }
 
 bool
@@ -653,6 +672,12 @@ EventQueue::Timer::getTimer() const
     return m_timer;
 }
 
+std::uint64_t
+EventQueue::Timer::getGeneration() const
+{
+    return m_generation;
+}
+
 void*
 EventQueue::Timer::getTarget() const
 {
@@ -660,11 +685,11 @@ EventQueue::Timer::getTarget() const
 }
 
 void
-EventQueue::Timer::fillEvent(TimerEvent& event) const
+EventQueue::Timer::fillEvent(TimerEvent& event, double baseTime) const
 {
     event.m_timer = m_timer;
     event.m_count = 0;
-    double remaining = m_deadline - s_baseTime;
+    double remaining = m_deadline - baseTime;
     if (remaining <= 0.0) {
         event.m_count = static_cast<UInt32>((m_timeout - remaining) / m_timeout);
     }

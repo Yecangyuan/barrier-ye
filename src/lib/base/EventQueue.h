@@ -29,9 +29,12 @@
 #include "common/stdvector.h"
 #include "base/NonBlockingStream.h"
 
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <unordered_map>
+#include <unordered_set>
 
 //! Event queue
 /*!
@@ -67,23 +70,28 @@ public:
     virtual void        waitForReady() const;
 
 private:
+    class Timer;
+
     UInt32                saveEvent(const Event& event);
     Event                removeEvent(UInt32 eventID);
     bool                hasTimerExpired(Event& event);
-    double                getNextTimerTimeout() const;
+    double                getNextTimerTimeout();
     void                addEventToBuffer(const Event& event);
     bool                parent_requests_shutdown() const;
+    void                discardInactiveTimers();
+    bool                isTimerActive(const class Timer& timer) const;
 
 private:
     // Optimized Timer class using absolute deadlines instead of relative time
     // This eliminates the O(n) loop in hasTimerExpired()
     class Timer {
     public:
-        Timer(EventQueueTimer*, double timeout, double initialTime,
+        Timer(EventQueueTimer*, double timeout, double deadline,
+                            std::uint64_t generation,
                             void* target, bool oneShot);
         ~Timer();
 
-        void            reset();
+        void            reset(double baseTime);
         
         // New: Get remaining time relative to a base time
         double            getRemaining(double baseTime) const;
@@ -98,8 +106,9 @@ private:
         bool            isOneShot() const;
         EventQueueTimer*
                         getTimer() const;
+        std::uint64_t   getGeneration() const;
         void*            getTarget() const;
-        void            fillEvent(TimerEvent&) const;
+        void            fillEvent(TimerEvent&, double baseTime) const;
 
         bool            operator<(const Timer&) const;
 
@@ -109,11 +118,11 @@ private:
         void*                m_target;
         bool                m_oneShot;
         double                m_deadline;     // Absolute deadline (replaces m_time)
-    public:
-        static double       s_baseTime;     // Global time base for all timers
+        std::uint64_t       m_generation;
     };
 
-    typedef std::set<EventQueueTimer*> Timers;
+    typedef std::unordered_set<EventQueueTimer*> Timers;
+    typedef std::unordered_map<EventQueueTimer*, std::uint64_t> TimerGenerationTable;
     typedef PriorityQueue<Timer> TimerQueue;
     typedef std::vector<Event> EventTable;
     typedef std::vector<UInt32> EventIDList;
@@ -148,8 +157,11 @@ private:
     // timers
     Stopwatch            m_time;
     Timers                m_timers;
+    TimerGenerationTable  m_timerGenerations;
     TimerQueue            m_timerQueue;
     TimerEvent            m_timerEvent;
+    double                m_timerBaseTime;
+    std::uint64_t         m_nextTimerGeneration;
 
     // event handlers
     HandlerTable        m_handlers;

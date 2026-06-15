@@ -95,11 +95,7 @@ private:
     // by it.
     std::mutex ssl_mutex_;
 
-    // Custom deleter for Ssl struct
-    struct SslDeleter {
-        void operator()(Ssl* ssl);
-    };
-    std::unique_ptr<Ssl, SslDeleter> m_ssl;
+    std::unique_ptr<Ssl> m_ssl;
     bool                m_secureReady;
     bool                m_fatal;
     ConnectionSecurityLevel security_level_ = ConnectionSecurityLevel::ENCRYPTED;

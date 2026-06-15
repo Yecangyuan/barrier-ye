@@ -60,6 +60,7 @@ void PerfMonitor::recordLatency(const char* operation, int64_t us)
 
 void PerfMonitor::recordCount(const char* metric)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     m_counts[metric]++;
 }
 
@@ -75,6 +76,7 @@ double PerfMonitor::getAverageLatency(const char* operation)
 
 uint64_t PerfMonitor::getCount(const char* metric)
 {
+    std::lock_guard<std::mutex> lock(m_mutex);
     auto it = m_counts.find(metric);
     if (it == m_counts.end()) {
         return 0;

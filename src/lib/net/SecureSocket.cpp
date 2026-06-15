@@ -53,12 +53,38 @@ enum {
 struct Ssl {
     SSL_CTX*    m_context;
     SSL*        m_ssl;
+
+    Ssl() :
+        m_context(NULL),
+        m_ssl(NULL)
+    {
+    }
+
+    ~Ssl()
+    {
+        reset();
+    }
+
+    void reset()
+    {
+        if (m_ssl != NULL) {
+            SSL_shutdown(m_ssl);
+            SSL_free(m_ssl);
+            m_ssl = NULL;
+        }
+
+        if (m_context != NULL) {
+            SSL_CTX_free(m_context);
+            m_context = NULL;
+        }
+    }
 };
 
 SecureSocket::SecureSocket(IEventQueue* events, SocketMultiplexer* socketMultiplexer,
                            IArchNetwork::EAddressFamily family,
                            ConnectionSecurityLevel security_level) :
     TCPSocket(events, socketMultiplexer, family),
+    m_ssl(new Ssl()),
     m_secureReady(false),
     m_fatal(false),
     security_level_{security_level}
@@ -68,6 +94,7 @@ SecureSocket::SecureSocket(IEventQueue* events, SocketMultiplexer* socketMultipl
 SecureSocket::SecureSocket(IEventQueue* events, SocketMultiplexer* socketMultiplexer,
                            ArchSocket socket, ConnectionSecurityLevel security_level) :
     TCPSocket(events, socketMultiplexer, socket),
+    m_ssl(new Ssl()),
     m_secureReady(false),
     m_fatal(false),
     security_level_{security_level}
@@ -83,23 +110,10 @@ SecureSocket::~SecureSocket()
     removeJob();
     freeSSLResources();
 
-    // m_ssl is automatically cleaned up by unique_ptr with SslDeleter
+    // m_ssl is automatically cleaned up by unique_ptr.
     // removing sleep() because I have no idea why you would want to do it
     // ... smells of trying to cover up a bug you don't understand
     //ARCH->sleep(1);
-}
-
-void SecureSocket::SslDeleter::operator()(Ssl* ssl)
-{
-    if (ssl) {
-        if (ssl->m_ssl) {
-            SSL_free(ssl->m_ssl);
-        }
-        if (ssl->m_context) {
-            SSL_CTX_free(ssl->m_context);
-        }
-        delete ssl;
-    }
 }
 
 void
@@ -114,16 +128,11 @@ void SecureSocket::freeSSLResources()
 {
     std::lock_guard<std::mutex> ssl_lock{ssl_mutex_};
 
-    if (m_ssl->m_ssl != NULL) {
-        SSL_shutdown(m_ssl->m_ssl);
-        SSL_free(m_ssl->m_ssl);
-        m_ssl->m_ssl = NULL;
+    if (!m_ssl) {
+        return;
     }
 
-    if (m_ssl->m_context != NULL) {
-        SSL_CTX_free(m_ssl->m_context);
-        m_ssl->m_context = NULL;
-    }
+    m_ssl->reset();
 }
 
 void
@@ -334,9 +343,7 @@ SecureSocket::initSsl(bool server)
 {
     std::lock_guard<std::mutex> ssl_lock{ssl_mutex_};
 
-    m_ssl.reset(new Ssl());
-    m_ssl->m_context = NULL;
-    m_ssl->m_ssl = NULL;
+    m_ssl->reset();
 
     initContext(server);
 }
@@ -402,24 +409,44 @@ SecureSocket::initContext(bool server)
         showSecureLibInfo();
     }
 
-    // SSLv23_method uses TLSv1, with the ability to fall back to SSLv3
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+    // TLS_method negotiates the highest mutually supported TLS version.
+    if (server) {
+        method = TLS_server_method();
+    }
+    else {
+        method = TLS_client_method();
+    }
+#else
+    // OpenSSL 1.0.x exposes SSLv23_* as the version-flexible TLS method.
     if (server) {
         method = SSLv23_server_method();
     }
     else {
         method = SSLv23_client_method();
     }
+#endif
 
     // create new context from method
     SSL_METHOD* m = const_cast<SSL_METHOD*>(method);
     m_ssl->m_context = SSL_CTX_new(m);
 
-    // drop SSLv3 support
-    SSL_CTX_set_options(m_ssl->m_context, SSL_OP_NO_SSLv3);
-
     if (m_ssl->m_context == NULL) {
         showError("");
     }
+
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L && defined(TLS1_2_VERSION)
+    SSL_CTX_set_min_proto_version(m_ssl->m_context, TLS1_2_VERSION);
+#else
+    long options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3;
+#if defined(SSL_OP_NO_TLSv1)
+    options |= SSL_OP_NO_TLSv1;
+#endif
+#if defined(SSL_OP_NO_TLSv1_1)
+    options |= SSL_OP_NO_TLSv1_1;
+#endif
+    SSL_CTX_set_options(m_ssl->m_context, options);
+#endif
 
     if (security_level_ == ConnectionSecurityLevel::ENCRYPTED_AUTHENTICATED) {
         // We want to ask for peer certificate, but not verify it. If we don't ask for peer

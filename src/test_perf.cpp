@@ -9,6 +9,23 @@
 #include <mutex>
 #include <atomic>
 #include <cstring>
+#include <cstdint>
+
+static volatile std::uintptr_t g_pointerSink = 0;
+static volatile int g_intSink = 0;
+
+template <class T>
+void doNotOptimize(const T& value)
+{
+#if defined(_MSC_VER)
+    g_pointerSink ^= reinterpret_cast<std::uintptr_t>(&value);
+    std::atomic_signal_fence(std::memory_order_seq_cst);
+#elif defined(__GNUC__) || defined(__clang__)
+    asm volatile("" : : "g"(&value) : "memory");
+#else
+    g_pointerSink ^= reinterpret_cast<std::uintptr_t>(&value);
+#endif
+}
 
 // Simple performance timer
 class PerfTimer {
@@ -122,6 +139,8 @@ void benchmark_allocation() {
         PerfTimer timer("new/delete (1000000 allocs)");
         for (int i = 0; i < NUM_ALLOCS; i++) {
             int* p = new int(i);
+            g_intSink += *p;
+            doNotOptimize(p);
             delete p;
         }
     }
@@ -140,6 +159,8 @@ void benchmark_allocation() {
                 p = new int;
             }
             *p = i;
+            g_intSink += *p;
+            doNotOptimize(p);
             // Simulate work
             if (poolIndex < pool.size()) {
                 pool[poolIndex++] = p;
@@ -185,6 +206,8 @@ void benchmark_buffer() {
             sum += val;
         }
         // Prevent optimization
+        doNotOptimize(sum);
+        g_intSink += sum;
         std::cout << "  (sum=" << sum << ")" << std::endl;
     }
 }
@@ -219,6 +242,7 @@ void benchmark_event_dispatch() {
                 handled++;
             }
         }
+        doNotOptimize(handled);
         std::cout << "  (handled=" << handled << ")" << std::endl;
     }
     
@@ -235,6 +259,7 @@ void benchmark_event_dispatch() {
                 }
             }
         }
+        doNotOptimize(handled);
         std::cout << "  (handled=" << handled << ")" << std::endl;
     }
 }
@@ -250,10 +275,11 @@ int main() {
     
     std::cout << "\n=== Summary ===" << std::endl;
     std::cout << "Key optimizations tested:" << std::endl;
-    std::cout << "1. Lock-free queue reduces contention" << std::endl;
-    std::cout << "2. Object pool reduces allocation overhead" << std::endl;
-    std::cout << "3. Batch processing improves cache locality" << std::endl;
-    std::cout << "4. Pre-sized buffers reduce reallocations" << std::endl;
+    std::cout << "1. Mutex queue contention baseline" << std::endl;
+    std::cout << "2. Allocation strategy comparison" << std::endl;
+    std::cout << "3. Buffer copy and processing baseline" << std::endl;
+    std::cout << "4. Simple vs batched dispatch baseline" << std::endl;
+    std::cout << "Sink: " << g_intSink << " / " << g_pointerSink << std::endl;
     
     return 0;
 }

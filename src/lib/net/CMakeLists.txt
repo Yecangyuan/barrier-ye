@@ -14,8 +14,41 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-file(GLOB headers "*.h")
-file(GLOB sources "*.cpp")
+set(headers
+    ConnectionSecurityLevel.h
+    FingerprintData.h
+    FingerprintDatabase.h
+    IDataSocket.h
+    IListenSocket.h
+    ISocket.h
+    ISocketFactory.h
+    ISocketMultiplexerJob.h
+    NetworkAddress.h
+    SecureListenSocket.h
+    SecureSocket.h
+    SecureUtils.h
+    SocketMultiplexer.h
+    TCPListenSocket.h
+    TCPSocket.h
+    TCPSocketFactory.h
+    TSocketMultiplexerMethodJob.h
+    XSocket.h
+)
+
+set(sources
+    FingerprintData.cpp
+    FingerprintDatabase.cpp
+    IDataSocket.cpp
+    NetworkAddress.cpp
+    SecureListenSocket.cpp
+    SecureSocket.cpp
+    SecureUtils.cpp
+    SocketMultiplexer.cpp
+    TCPListenSocket.cpp
+    TCPSocket.cpp
+    TCPSocketFactory.cpp
+    XSocket.cpp
+)
 
 if (BARRIER_ADD_HEADERS)
     list(APPEND sources ${headers})

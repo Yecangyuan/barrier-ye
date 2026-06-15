@@ -22,6 +22,7 @@ option (BARRIER_BUILD_GUI "Build the GUI" ON)
 option (BARRIER_BUILD_INSTALLER "Build the installer" ON)
 option (BARRIER_BUILD_TESTS "Build the tests" ON)
 option (BARRIER_USE_EXTERNAL_GTEST "Use external installation of Google Test framework" OFF)
+option (BARRIER_ENABLE_PERF_MONITOR "Enable hot-path performance monitor instrumentation" OFF)
 set (BARRIER_BUNDLE_ID "io.github.yecangyuan.barrier-ye" CACHE STRING "macOS application bundle identifier")
 
 set (CMAKE_EXPORT_COMPILE_COMMANDS ON)
@@ -35,50 +36,47 @@ if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions (-DNDEBUG)
 endif()
 
-# Performance optimization flags
-if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    # Enable optimizations
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3")
-    
-    # Enable link-time optimization for Release builds
-    set (CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
-    
-    # Enable more aggressive inlining
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -finline-functions")
-    
-    # Enable vectorization
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -ftree-vectorize")
-    
-    # For macOS, don't use march=native as it may cause issues
-    if (NOT APPLE)
-        # Optimize for local CPU (only if not cross-compiling)
-        # set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native")
-    endif()
-    
-    # Enable hidden visibility for better optimization
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fvisibility=hidden")
-    
-    # Remove unused code
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffunction-sections -fdata-sections")
-    if (NOT APPLE)
-        # GNU ld option to remove unused sections (not supported on macOS)
-        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--gc-sections")
-    else()
-        # macOS equivalent for dead code removal
-        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-dead_strip")
-    endif()
+if (BARRIER_ENABLE_PERF_MONITOR)
+    add_definitions (-DBARRIER_ENABLE_PERF_MONITOR=1)
 endif()
 
-if (MSVC)
-    # MSVC optimizations
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2 /Ob2 /Oi /Ot")
-    set (CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /GL")  # Whole program optimization
-    set (CMAKE_EXE_LINKER_FLAGS_RELEASE "${CMAKE_EXE_LINKER_FLAGS_RELEASE} /LTCG")
-endif()
+function (barrier_apply_target_options target_name)
+    if (NOT TARGET ${target_name})
+        return()
+    endif()
 
-if (APPLE)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-no_warn_duplicate_libraries")
-endif()
+    if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options (${target_name} PRIVATE
+            -fvisibility=hidden
+            -ffunction-sections
+            -fdata-sections
+            $<$<CONFIG:Release>:-O3>
+            $<$<CONFIG:Release>:-finline-functions>
+            $<$<CONFIG:Release>:-ftree-vectorize>
+        )
+        set_property (TARGET ${target_name} PROPERTY INTERPROCEDURAL_OPTIMIZATION_RELEASE TRUE)
+    elseif (MSVC)
+        target_compile_options (${target_name} PRIVATE
+            $<$<CONFIG:Release>:/O2>
+            $<$<CONFIG:Release>:/Ob2>
+            $<$<CONFIG:Release>:/Oi>
+            $<$<CONFIG:Release>:/Ot>
+            $<$<CONFIG:Release>:/GL>
+        )
+        set_property (TARGET ${target_name} APPEND_STRING PROPERTY LINK_FLAGS_RELEASE " /LTCG")
+    endif()
+
+    get_target_property (target_type ${target_name} TYPE)
+    if (target_type STREQUAL "EXECUTABLE")
+        if (CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+            if (APPLE)
+                set_property (TARGET ${target_name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,-dead_strip -Wl,-no_warn_duplicate_libraries")
+            else()
+                set_property (TARGET ${target_name} APPEND_STRING PROPERTY LINK_FLAGS " -Wl,--gc-sections")
+            endif()
+        endif()
+    endif()
+endfunction()
 
 include (cmake/Version.cmake)
 include (cmake/Package.cmake)
@@ -179,7 +177,10 @@ if (UNIX)
     endif()
 
     if (APPLE)
-        set (CMAKE_CXX_FLAGS "--sysroot ${CMAKE_OSX_SYSROOT} ${CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=1")
+        if (CMAKE_OSX_SYSROOT)
+            set (CMAKE_CXX_FLAGS "--sysroot ${CMAKE_OSX_SYSROOT} ${CMAKE_CXX_FLAGS}")
+        endif()
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DGTEST_USE_OWN_TR1_TUPLE=1")
 
         find_library (lib_ScreenSaver ScreenSaver)
         find_library (lib_IOKit IOKit)
@@ -499,3 +500,25 @@ endif()
 enable_testing()
 
 add_subdirectory (src)
+
+add_executable (test_perf src/test_perf.cpp)
+barrier_apply_target_options (test_perf)
+
+foreach (barrier_target
+        arch
+        base
+        client
+        common
+        io
+        ipc
+        mt
+        net
+        platform
+        server
+        synlib
+        barrierc
+        barrierd
+        barriers
+        barrier)
+    barrier_apply_target_options (${barrier_target})
+endforeach()

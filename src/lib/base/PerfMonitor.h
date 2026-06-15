@@ -63,9 +63,22 @@ private:
     std::map<std::string, std::atomic<uint64_t>> m_counts;
 };
 
-// Macros for easy instrumentation
+#ifndef BARRIER_ENABLE_PERF_MONITOR
+#define BARRIER_ENABLE_PERF_MONITOR 0
+#endif
+
+// Macros for optional instrumentation. Keep the monitor API available for
+// tests and explicit diagnostics, but avoid hot-path overhead by default.
+#if BARRIER_ENABLE_PERF_MONITOR
 #define PERF_TIMER(name) PerfTimer _perf_timer(name)
 #define PERF_RECORD_LATENCY(op, us) PerfMonitor::instance().recordLatency(op, us)
 #define PERF_RECORD_COUNT(metric) PerfMonitor::instance().recordCount(metric)
 #define PERF_PRINT_STATS() PerfMonitor::instance().printStats()
 #define PERF_RESET() PerfMonitor::instance().reset()
+#else
+#define PERF_TIMER(name) do { } while (0)
+#define PERF_RECORD_LATENCY(op, us) do { } while (0)
+#define PERF_RECORD_COUNT(metric) do { } while (0)
+#define PERF_PRINT_STATS() do { } while (0)
+#define PERF_RESET() do { } while (0)
+#endif

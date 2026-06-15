@@ -1,6 +1,6 @@
 /*
  * barrier -- mouse and keyboard sharing utility
- * Copyright (C) 2018 Debauchee Open Source Group
+ * Copyright (C) 2026 Barrier contributors
  *
  * This package is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -17,4 +17,6 @@
 
 #pragma once
 
-#include "common/ShutdownCh.h"
+// Byte sent by the GUI parent process to ask a child server/client process to
+// shut down cleanly.
+const char ShutdownCh = 'S';
