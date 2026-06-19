@@ -1,0 +1,179 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  linux-package:
+    name: Linux Package
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            g++ \
+            libavahi-compat-libdnssd-dev \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libx11-dev \
+            libxext-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxtst-dev \
+            qtbase5-dev
+
+      - name: Build release
+        env:
+          B_BUILD_TYPE: Release
+          B_CMAKE_FLAGS: -DBARRIER_BUILD_TESTS=OFF
+        run: ./clean_build.sh
+
+      - name: Create package
+        working-directory: build
+        run: cpack -G TBZ2
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-linux
+          path: build/*.tar.bz2
+          if-no-files-found: error
+          retention-days: 7
+
+  macos-package:
+    name: macOS Package
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          set -euxo pipefail
+          brew install openssl@3 pkg-config qt@5
+
+      - name: Build release
+        env:
+          B_BUILD_TYPE: Release
+          B_CMAKE_FLAGS: -DBARRIER_BUILD_TESTS=OFF
+        run: ./clean_build.sh
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-macos
+          path: build/bundle/*.dmg
+          if-no-files-found: error
+          retention-days: 7
+
+  windows-package:
+    name: Windows Package
+    runs-on: windows-2022
+    env:
+      CI_ENV_BUILD_TYPE: Release
+      B_CMAKE_FLAGS: -DBARRIER_BUILD_TESTS=OFF
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.7"
+
+      - name: Install Qt
+        shell: powershell
+        run: .\azure-pipelines\download_install_qt.ps1
+
+      - name: Install Bonjour SDK-like
+        shell: powershell
+        run: .\azure-pipelines\download_install_bonjour_sdk_like.ps1
+
+      - name: Prepare build environment
+        shell: cmd
+        run: copy azure-pipelines\build_env_tmpl.bat build_env.bat
+
+      - name: Build release
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSINSTALL=%%i"
+          if not defined VSINSTALL exit /b 1
+          call "%VSINSTALL%\Common7\Tools\VsDevCmd.bat" -arch=x64
+          call clean_build.bat
+
+      - name: Install Inno Setup
+        shell: powershell
+        run: choco install innosetup -y --no-progress
+
+      - name: Build installer
+        shell: cmd
+        run: build_installer.bat
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-windows
+          path: build/installer-inno/bin/*.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-24.04
+    needs:
+      - linux-package
+      - macos-package
+      - windows-package
+    permissions:
+      contents: write
+    steps:
+      - name: Download all release artifacts
+        uses: actions/download-artifact@v5
+        with:
+          path: release-assets
+          pattern: release-*
+          merge-multiple: true
+
+      - name: Inspect downloaded assets
+        run: |
+          set -euxo pipefail
+          find release-assets -maxdepth 2 -type f | sort
+
+      - name: Create or update release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          mapfile -t assets < <(find release-assets -maxdepth 1 -type f | sort)
+          if [ "${#assets[@]}" -eq 0 ]; then
+            echo "No release assets were downloaded" >&2
+            exit 1
+          fi
+
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "${assets[@]}" --clobber
+          else
+            gh release create "$RELEASE_TAG" "${assets[@]}" --generate-notes --title "$RELEASE_TAG"
+          fi

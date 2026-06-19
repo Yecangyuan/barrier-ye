@@ -1,10 +1,13 @@
 @echo off
-set INNO_ROOT=C:\Program Files (x86)\Inno Setup 5
+if not defined INNO_ROOT if exist "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" set INNO_ROOT=C:\Program Files (x86)\Inno Setup 6
+if not defined INNO_ROOT if exist "C:\Program Files (x86)\Inno Setup 5\ISCC.exe" set INNO_ROOT=C:\Program Files (x86)\Inno Setup 5
 
+set BUILD_FAILED=0
 set savedir=%cd%
 cd /d %~dp0
 
 if not exist build\bin\Release goto buildproject
+if not defined INNO_ROOT goto missinginno
 
 echo Building 64-bit Windows installer...
 
@@ -24,7 +27,14 @@ echo  - run clean_build.bat to build Barrier and verify that it succeeds
 echo  - re-run this script to create the installation package
 goto done
 
+:missinginno
+echo Inno Setup was not found.
+echo Set INNO_ROOT or install Inno Setup 6 or 5.
+set BUILD_FAILED=1
+goto failed
+
 :failed
+set BUILD_FAILED=1
 echo Build failed
 
 :done
@@ -32,3 +42,4 @@ set INNO_ROOT=
 
 cd /d %savedir%
 set savedir=
+EXIT /B %BUILD_FAILED%
