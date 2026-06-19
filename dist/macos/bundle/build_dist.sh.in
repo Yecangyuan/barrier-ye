@@ -13,11 +13,17 @@ B_BUILDTYPE="@CMAKE_BUILD_TYPE@"
 B_BARRIERC="Barrier.app/Contents/MacOS/barrierc"
 B_BARRIERS="Barrier.app/Contents/MacOS/barriers"
 
+colorize() {
+    if [ -n "${TERM:-}" ] && command -v tput >/dev/null 2>&1; then
+        tput "$@" || true
+    fi
+}
+
 # Colorized output
-info() { tput bold; echo "$@"; tput sgr0 ; }
-error() { tput bold; tput setaf 1; echo "$@"; tput sgr0 ; }
-success() { tput bold; tput setaf 2; echo "$@"; tput sgr0 ; }
-warn() { tput bold; tput setaf 3; echo "$@"; tput sgr0 ; }
+info() { colorize bold; echo "$@"; colorize sgr0; }
+error() { colorize bold; colorize setaf 1; echo "$@"; colorize sgr0; }
+success() { colorize bold; colorize setaf 2; echo "$@"; colorize sgr0; }
+warn() { colorize bold; colorize setaf 3; echo "$@"; colorize sgr0; }
 
 info "Checking for bundle contents"
 if [ ! -d "Barrier.app/Contents" ]; then
