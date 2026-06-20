@@ -33,7 +33,10 @@ VersionInfoCopyright={#MyAppCopyright}
 
 Compression=lzma
 SolidCompression=yes
-ArchitecturesInstallIn64BitMode=x64 ia64
+; Barrier ships x64 binaries, so restrict the installer to x64-capable
+; systems and enable 64-bit install mode there.
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 #include "scripts\lang\english.iss"

@@ -385,26 +385,36 @@ elseif (${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
             ${OPENSSL_ROOT}/lib/libcrypto.a
             z
         )
-    elseif (IS_DIRECTORY /usr/local/opt/openssl AND BREW_PROGRAM)
-        # brew
-        set (OPENSSL_ROOT /usr/local/opt/openssl)
+    elseif (BREW_PROGRAM)
+        set (OPENSSL_BREW_FORMULAS openssl openssl@3 openssl@1.1)
 
-        include_directories (BEFORE SYSTEM ${OPENSSL_ROOT}/include)
+        foreach (OPENSSL_BREW_FORMULA ${OPENSSL_BREW_FORMULAS})
+            execute_process (
+                COMMAND ${BREW_PROGRAM} --prefix ${OPENSSL_BREW_FORMULA}
+                OUTPUT_VARIABLE OPENSSL_ROOT
+                RESULT_VARIABLE OPENSSL_ROOT_RESULT
+                OUTPUT_STRIP_TRAILING_WHITESPACE
+                ERROR_QUIET
+            )
 
-        set (OPENSSL_LIBS
-            ${OPENSSL_ROOT}/lib/libssl.a
-            ${OPENSSL_ROOT}/lib/libcrypto.a
-        )
-    elseif (IS_DIRECTORY /opt/homebrew/opt/openssl AND BREW_PROGRAM)
-        # brew
-        set (OPENSSL_ROOT /opt/homebrew/opt/openssl)
+            if (OPENSSL_ROOT_RESULT EQUAL 0 AND IS_DIRECTORY "${OPENSSL_ROOT}")
+                break()
+            endif()
 
-        include_directories (BEFORE SYSTEM ${OPENSSL_ROOT}/include)
+            unset (OPENSSL_ROOT)
+        endforeach()
+        unset (OPENSSL_BREW_FORMULAS)
+        unset (OPENSSL_BREW_FORMULA)
+        unset (OPENSSL_ROOT_RESULT)
 
-        set (OPENSSL_LIBS
-            ${OPENSSL_ROOT}/lib/libssl.a
-            ${OPENSSL_ROOT}/lib/libcrypto.a
-        )
+        if (DEFINED OPENSSL_ROOT AND IS_DIRECTORY "${OPENSSL_ROOT}")
+            include_directories (BEFORE SYSTEM ${OPENSSL_ROOT}/include)
+
+            set (OPENSSL_LIBS
+                ${OPENSSL_ROOT}/lib/libssl.a
+                ${OPENSSL_ROOT}/lib/libcrypto.a
+            )
+        endif()
     endif()
 
 elseif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")

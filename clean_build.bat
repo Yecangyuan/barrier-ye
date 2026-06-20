@@ -2,6 +2,7 @@
 
 REM defaults - override them by creating a build_env.bat file
 set B_BUILD_TYPE=Debug
+set B_CMAKE_FLAGS=
 set B_QT_ROOT=C:\Qt
 set B_QT_VER=5.11.1
 set B_QT_MSVC=msvc2017_64
@@ -15,11 +16,13 @@ if "%VisualStudioVersion%"=="15.0" (
     set cmake_gen=Visual Studio 15 2017
 ) else if "%VisualStudioVersion%"=="16.0" (
     set cmake_gen=Visual Studio 16 2019
+) else if "%VisualStudioVersion%"=="17.0" (
+    set cmake_gen=Visual Studio 17 2022
 ) else (
     echo Visual Studio version was not detected.
     echo Did you forget to run inside a VS developer prompt?
     echo Using the default cmake generator.
-    set cmake_gen=Visual Studio 16 2019
+    set cmake_gen=Visual Studio 17 2022
 )
 
 if exist build_env.bat call build_env.bat
@@ -39,7 +42,7 @@ rmdir /q /s build
 mkdir build
 if ERRORLEVEL 1 goto failed
 cd build
-cmake -G "%cmake_gen%" -A x64 -D CMAKE_BUILD_TYPE=%B_BUILD_TYPE% -D CMAKE_PREFIX_PATH="%B_QT_FULLPATH%" -D DNSSD_LIB="%B_BONJOUR%\Lib\x64\dnssd.lib" -D QT_VERSION=%B_QT_VER% ..
+cmake -G "%cmake_gen%" -A x64 -D CMAKE_BUILD_TYPE=%B_BUILD_TYPE% -D CMAKE_PREFIX_PATH="%B_QT_FULLPATH%" -D DNSSD_LIB="%B_BONJOUR%\Lib\x64\dnssd.lib" -D QT_VERSION=%B_QT_VER% %B_CMAKE_FLAGS% ..
 if ERRORLEVEL 1 goto failed
 cmake --build . --config %B_BUILD_TYPE%
 if ERRORLEVEL 1 goto failed
@@ -79,6 +82,7 @@ echo Build failed
 cd /d %savedir%
 
 set B_BUILD_TYPE=
+set B_CMAKE_FLAGS=
 set B_QT_ROOT=
 set B_QT_VER=
 set B_QT_MSVC=

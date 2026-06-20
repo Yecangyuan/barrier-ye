@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux Build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          sudo apt-get install -y \
+            cmake \
+            g++ \
+            libavahi-compat-libdnssd-dev \
+            libcurl4-openssl-dev \
+            libssl-dev \
+            libx11-dev \
+            libxext-dev \
+            libxi-dev \
+            libxinerama-dev \
+            libxrandr-dev \
+            libxtst-dev \
+            qtbase5-dev
+
+      - name: Build
+        env:
+          B_BUILD_TYPE: Release
+          B_CMAKE_FLAGS: -DBARRIER_BUILD_INSTALLER=OFF -DBARRIER_BUILD_TESTS=OFF
+        run: ./clean_build.sh
+
+  macos:
+    name: macOS Build
+    runs-on: macos-15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        env:
+          HOMEBREW_NO_AUTO_UPDATE: 1
+        run: |
+          set -euxo pipefail
+          brew install openssl@3 pkg-config qt@5
+
+      - name: Build
+        env:
+          B_BUILD_TYPE: Release
+          B_CMAKE_FLAGS: -DBARRIER_BUILD_INSTALLER=OFF -DBARRIER_BUILD_TESTS=OFF
+        run: ./clean_build.sh
+
+  windows:
+    name: Windows Build
+    runs-on: windows-2022
+    env:
+      CI_ENV_BUILD_TYPE: Release
+      B_CMAKE_FLAGS: -DBARRIER_BUILD_INSTALLER=OFF -DBARRIER_BUILD_TESTS=OFF
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.7"
+
+      - name: Install Qt
+        shell: powershell
+        run: .\azure-pipelines\download_install_qt.ps1
+
+      - name: Install Bonjour SDK-like
+        shell: powershell
+        run: .\azure-pipelines\download_install_bonjour_sdk_like.ps1
+
+      - name: Prepare build environment
+        shell: cmd
+        run: copy azure-pipelines\build_env_tmpl.bat build_env.bat
+
+      - name: Build
+        shell: cmd
+        run: |
+          for /f "usebackq delims=" %%i in (`"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath`) do set "VSINSTALL=%%i"
+          if not defined VSINSTALL exit /b 1
+          call "%VSINSTALL%\Common7\Tools\VsDevCmd.bat" -arch=x64
+          call clean_build.bat
